@@ -145,6 +145,7 @@ print("(2) the customer of both the 'average' and 'median' retail provider exper
       "than those characterized in the article")
 
 #%%
+print("")
 print("Sort Weighted Averages, print out some summaries...")
 total_wt_avg = pd.concat([wt_avg, wsj_data], axis=0)
 total_wt_avg.sort_index(inplace=True)
