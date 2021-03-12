@@ -24,6 +24,7 @@ pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.width', 1000)
 pd.options.display.float_format = '{:,.2f}'.format
+idx = pd.IndexSlice
 #%%
 DOWNLOAD_ROOT = "./data"  # Put zipfiles in this directory
 zipped_dict = {}
@@ -98,26 +99,16 @@ all_data['ChkAvgPrc'] = np.abs(all_data['AvgPrc'] - all_data['RevPerSales'])
 num_cols_not_tying = len(all_data[(all_data.ChkAvgPrc > 0.01)])
 print("AvgPrc equal to RevPerSales except in {0:d} instances where AvgPrc was listed as zero"
       .format(num_cols_not_tying))
-# make any adjustments here.
-# all_data = all_data[all_data['Entity'].str.find('Adjustment') == -1]
-
+print("Unique categories of Ownership in data:\n{0}".format("\n".join(list(all_data['Ownership'].unique()))))
+print("Create column 'OwnershipType' to capture 'Reg' vs 'DeReg' where\n"
+      " 'DReg' => 'Power Marketer' or 'Retail Energy Provider' and 'Reg; => all other")
+all_data['OwnershipType'] = all_data['Ownership'].apply(
+    lambda x: 'DeReg' if x in ['Retail Energy Provider', 'Power Marketer'] else 'Reg')
 #%%
 tx_data = all_data[all_data['State'] == 'TX'].copy()
-tx_data['OwnershipType'] = tx_data['Ownership'].apply(
-    lambda x: 'DeReg' if x in ['Retail Energy Provider', 'Power Marketer'] else 'Reg')
-print("Simple Average of Avg Price...")
-pd.options.display.float_format = '{:,.4f}'.format
-print(tx_data.pivot_table(values='AvgPrc', index=['OwnershipType', 'CustClass'], columns='Year'))
+print("extract data from Texas, {0:,} rows".format(len(tx_data)))
 #%%
-print("weighted average...")
-
-sums = tx_data.pivot_table(index=['OwnershipType', 'CustClass'], columns='Year', aggfunc='sum')
-idx = pd.IndexSlice
-
-tx_revs_per_sales = np.divide(sums.loc[:, idx['Rev', :]], sums.loc[:, idx['Sales', :]]) * 100.
-wt_avg = pd.DataFrame(data=tx_revs_per_sales.values, index=sums.index, columns=data_years)
-wt_avg.columns.name = 'Year'
-#%%
+print("Copy WSJ Article Data from Json, load into dataframe")
 wsj_data_retail_prov = [{"y":0.104512769},{"y":0.119135077},{"y":0.147907235},{"y":0.141452687},{"y":0.145587637},
                         {"y":0.141123651},{"y":0.127802827},{"y":0.11816842},{"y":0.11753115},{"y":0.120762946},
                         {"y":0.125853745},{"y":0.122157},{"y":0.113752593},{"y":0.111016108},{"y":0.115200733},
@@ -135,14 +126,42 @@ wsj_data = pd.DataFrame(data=None, index=data_years)
 wsj_data['DeReg'] = wsj_data_retail_prov
 wsj_data['Reg'] = wsj_data_trad_uts
 wsj_data = wsj_data[wsj_data.index >= np.min(data_years)].T.copy()
-wsj_index = pd.MultiIndex.from_tuples([('DeReg', 'wsj'), ('Reg', 'wsj')], names=wt_avg.index.names)
-wsj_data = pd.DataFrame(index=wsj_index, columns=wt_avg.columns, data=np.multiply(wsj_data.values, 100.))
+wsj_CustClass = 'wsj________'
+wsj_index = pd.MultiIndex.from_tuples([('DeReg', wsj_CustClass), ('Reg', wsj_CustClass)], names=['OwnershipType', 'CustClass'])
+wsj_data = pd.DataFrame(index=wsj_index, columns=data_years, data=np.multiply(wsj_data.values, 100.))
+print(wsj_data)
+#%%
+print("Compare to unweighted data EIA, mean and median...")
+pd.options.display.float_format = '{:,.2f}'.format
+print(wsj_data)
+aggfuncs = ['mean', 'median']
+for aggfunc in aggfuncs:
+    print("Table of {0}".format(aggfunc))
+    print(tx_data.pivot_table(values='AvgPrc', index=['OwnershipType', 'CustClass'],
+                              columns='Year', aggfunc=aggfunc).loc[idx[:, 'residential'], :])
+print("So we observe that...")
+print("(1) the 'averages' in the article must be weighted average...")
+print("(2) the customer of both the 'average' and 'median' retail provider experienced significantly lower prices\n"
+      "than those characterized in the article")
+
 #%%
 print("Sort Weighted Averages, print out some summaries...")
 total_wt_avg = pd.concat([wt_avg, wsj_data], axis=0)
 total_wt_avg.sort_index(inplace=True)
 print(total_wt_avg.loc[idx[:, ['residential', 'wsj']], :])
 print(total_wt_avg.loc[idx[:, ['commercial', 'industrial']], :])
+
+#%%
+print("weighted average...")
+
+sums = tx_data.pivot_table(index=['OwnershipType', 'CustClass'], columns='Year', aggfunc='sum')
+
+
+tx_revs_per_sales = np.divide(sums.loc[:, idx['Rev', :]], sums.loc[:, idx['Sales', :]]) * 100.
+wt_avg = pd.DataFrame(data=tx_revs_per_sales.values, index=sums.index, columns=data_years)
+wt_avg.columns.name = 'Year'
+#%%
+
 #%%
 # reconcile downloaded data with WSJ, graph to check
 res_reconcile = total_wt_avg.loc[idx[:, ['residential', 'wsj']], :]
