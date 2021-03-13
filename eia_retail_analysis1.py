@@ -106,8 +106,37 @@ print("Create column 'OwnershipType' to capture 'Reg' vs 'DeReg' where\n"
 all_data['OwnershipType'] = all_data['Ownership'].apply(
     lambda x: 'DeReg' if x in ['Retail Energy Provider', 'Power Marketer'] else 'Reg')
 #%%
-tx_data = all_data[all_data['State'] == 'TX'].copy()
-print("extract data from Texas, {0:,} rows".format(len(tx_data)))
+# Convert data into records
+cats = "Year CustClass Entity State Ownership OwnershipType".split()
+value_types = 'Customers Rev Sales AvgPrc'.split()
+all_records = pd.DataFrame()
+for value_type in value_types:
+    print("stacking {0}".format(value_type))
+    cols_to_fetch = cats.copy()
+    cols_to_fetch.append(value_type)
+    df = all_data[cols_to_fetch].copy()
+    df.insert(loc=len(df.columns) - 1, column='ValueType', value=value_type)
+    df.rename(columns={value_type: 'Value'}, inplace=True)
+    if len(all_records) == 0:
+        all_records = pd.DataFrame(df)
+    else:
+        all_records = pd.concat([all_records, df])
+all_records.reset_index(drop=True, inplace=True)
+#%%
+# Save to parquet for convenience
+records_filename = 'eia_alldata_records.parquet'
+records_filepath = Path(DOWNLOAD_ROOT, records_filename)
+all_records.to_parquet(Path(DOWNLOAD_ROOT, records_filename))
+#%%
+# Run from this block forward if data has already been cleaned and saved...
+records_filename = 'eia_alldata_records.parquet'
+records_filepath = Path(DOWNLOAD_ROOT, records_filename)
+all_records = pd.read_parquet(records_filepath)
+print("EIA records retrieved : {0:,}".format(len(all_records)))
+data_years = sorted(list(all_records['Year'].unique()))
+#%%
+tx_records = all_records[all_records['State'] == 'TX'].copy()
+print("extract data from Texas, {0:,} rows".format(len(tx_records)))
 #%%
 print("Copy WSJ Article Data from Json, load into dataframe")
 wsj_data_retail_prov = [{"y":0.104512769},{"y":0.119135077},{"y":0.147907235},{"y":0.141452687},{"y":0.145587637},
@@ -133,13 +162,14 @@ wsj_data = pd.DataFrame(index=wsj_index, columns=data_years, data=np.multiply(ws
 print(wsj_data)
 #%%
 print("Compare to unweighted data EIA, mean and median...")
+avg_price_data = tx_records[tx_records['ValueType'] == 'AvgPrc']
 pd.options.display.float_format = '{:,.2f}'.format
 print(wsj_data)
-aggfuncs = ['mean', 'median']
-for aggfunc in aggfuncs:
-    print("Table of {0}".format(aggfunc))
-    print(tx_data.pivot_table(values='AvgPrc', index=['OwnershipType', 'CustClass'],
-                              columns='Year', aggfunc=aggfunc).loc[idx[:, 'residential'], :])
+aggregate_prices = avg_price_data.pivot_table(values='Value', index=['OwnershipType', 'CustClass'],
+                              columns='Year', aggfunc={'Value': [np.mean, np.median]})
+aggregate_prices.columns.names = ['Aggregate', 'Year']  # name aggregates column, since there are two elements
+aggregate_prices = aggregate_prices.stack(level=0) # unstack to get aggregates in index
+print(aggregate_prices.loc[idx[:, 'residential', :], :])
 print("So we observe that...")
 print("(1) the 'averages' in the article must be weighted average, because these values do not tie...")
 print("(2) the customer of both the 'average' and 'median' retail provider experienced significantly lower prices\n"
@@ -147,31 +177,16 @@ print("(2) the customer of both the 'average' and 'median' retail provider exper
       "received a lower price than the median regulated customer")
 
 #%%
-print("calculate EIA weighted average prices...")
-tx_data.drop(['ChkAvgPrc', 'AvgPrc'], axis=1, inplace=True)
-#%%
-cats = "Year CustClass Entity State Ownership OwnershipType".split()
-value_types = 'Customers Rev Sales'.split()
-tx_records = pd.DataFrame()
-for value_type in value_types:
-    print("stacking {0}".format(value_type))
-    cols_to_fetch = cats.copy()
-    cols_to_fetch.append(value_type)
-    df = tx_data[cols_to_fetch].copy()
-    df.insert(loc=len(df.columns) - 1, column='ValueType', value=value_type)
-    df.rename(columns={value_type: 'Value'}, inplace=True)
-    if len(tx_records) == 0:
-        tx_records = pd.DataFrame(df)
-    else:
-        tx_records = pd.concat([tx_records, df])
-tx_records.reset_index(drop=True, inplace=True)
-#%%
-aggregates = tx_records.pivot_table(index=['ValueType', 'OwnershipType', 'CustClass'], columns='Year', aggfunc='sum')
-aggregates.columns = aggregates.columns.droplevel(level=0)
-print("Note, we take only commercial, industrial and residential categories for comparison")
+# So now we calculate
+print("So, calculate weighted average price, compare to wsj data...")
+print("Note, we take only commercial, industrial and residential categories for comparison,\n"
+      " dropping 'all' and 'transport")
+aggregates = tx_records.pivot_table(values='Value', index=['ValueType', 'OwnershipType', 'CustClass'],
+                                    columns='Year', aggfunc='sum')
 subset = ['commercial', 'industrial', 'residential']
 aggregates = aggregates.loc[idx[:, :, subset], :]
 #%%
+
 new_index = pd.MultiIndex.from_product([['WtAvgUnitPrc'], aggregates.index.get_level_values(1).unique(),
                                         aggregates.index.get_level_values(2).unique()], names=aggregates.index.names)
 wt_avg_prc_df = pd.DataFrame(data=aggregates.loc[idx['Rev', :, :], :].values * 100. /
@@ -209,7 +224,8 @@ print(wAvgPrcDiffXSales2)
 print("So benefits in commercial and industrial in recent years have often more than offset residential")
 print("Summing across years to check with article data, we see...")
 print(aggregates.loc[idx['WAvgPrcDiff*Sales', :, :], :].sum(axis=1))
-print("So we tie to the '$28Bn' proxy in the article...so the math is correct")
+print("So we tie to the '$28Bn' proxy in the article...\n"
+      "So regardless of the application, the math in the article appears to be correct")
 print("for context, total power revenues during the whole period were...")
 print(aggregates.loc[idx['Rev', 'DeReg', :], :].sum(axis=1) / 1.e6)
 print("over the following customer base...")
@@ -221,8 +237,6 @@ dollarsPerCustMonth = ((aggregates.loc[idx['WAvgPrcDiff*Sales', :, :], :] * 1.e9
 new_index = pd.MultiIndex.from_product([['AppliedValPerCustMonth'], ['DeRegMinusReg'], subset],
                                        names=aggregates.index.names)
 print(pd.DataFrame(data=dollarsPerCustMonth, index=new_index, columns=aggregates.columns))
-
-
 print()
 
 #%%
