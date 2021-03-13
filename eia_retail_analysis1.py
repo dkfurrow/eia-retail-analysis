@@ -156,7 +156,7 @@ wsj_data = pd.DataFrame(data=None, index=data_years)
 wsj_data['DeReg'] = wsj_data_retail_prov
 wsj_data['Reg'] = wsj_data_trad_uts
 wsj_data = wsj_data[wsj_data.index >= np.min(data_years)].T.copy()
-wsj_CustClass = 'wsj________'
+wsj_CustClass = 'wsj_resident'
 wsj_index = pd.MultiIndex.from_tuples([('DeReg', wsj_CustClass), ('Reg', wsj_CustClass)], names=['OwnershipType', 'CustClass'])
 wsj_data = pd.DataFrame(index=wsj_index, columns=data_years, data=np.multiply(wsj_data.values, 100.))
 print(wsj_data)
@@ -164,17 +164,42 @@ print(wsj_data)
 print("Compare to unweighted data EIA, mean and median...")
 avg_price_data = tx_records[tx_records['ValueType'] == 'AvgPrc']
 pd.options.display.float_format = '{:,.2f}'.format
-print(wsj_data)
+
 aggregate_prices = avg_price_data.pivot_table(values='Value', index=['OwnershipType', 'CustClass'],
                               columns='Year', aggfunc={'Value': [np.mean, np.median]})
 aggregate_prices.columns.names = ['Aggregate', 'Year']  # name aggregates column, since there are two elements
 aggregate_prices = aggregate_prices.stack(level=0) # unstack to get aggregates in index
+aggregate_prices.sort_index(inplace=True)
+wsj_data.sort_index(inplace=True)
+aggregate_prices.loc[('DeReg', 'residential', 'wsjWtAvg'), :] = wsj_data.loc[idx['DeReg', 'wsj_resident'], :]
+aggregate_prices.sort_index(inplace=True)
+aggregate_prices.loc[('Reg', 'residential', 'wsjWtAvg'), :] = wsj_data.loc[idx['Reg', 'wsj_resident'], :]
 print(aggregate_prices.loc[idx[:, 'residential', :], :])
 print("So we observe that...")
 print("(1) the 'averages' in the article must be weighted average, because these values do not tie...")
 print("(2) the customer of both the 'average' and 'median' retail provider experienced significantly lower prices\n"
       "than those characterized as 'average' in the article, and the median retail provider customer has often\n"
       "received a lower price than the median regulated customer")
+#%%
+print("Well, the fact that the weighted average varies so much from the median and mean supplier is interesting...")
+print("Let's redo their graph, include the customer of the median supplier")
+plt.rc('font', size=12)
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.set_xlabel('Year')
+ax.set_ylabel('Price (cents/kwh)')
+ax.set_title("""Pricey Power Revisited--WSJ "Average' Values vs Median Supplier Prices""")
+ax.grid(True)
+# Use linestyle keyword to style our plot
+ax.plot(aggregate_prices.columns.tolist(), aggregate_prices.loc[('DeReg', 'residential', 'mean'), :].values, color='red', linestyle='--',
+        label='Median Retail Provider Price')
+ax.plot(aggregate_prices.columns.tolist(), aggregate_prices.loc[('DeReg', 'residential', 'wsjWtAvg'), :].values, color='blue', linestyle='--',
+        label="""WSJ: Retail Providers 'Average'""")
+ax.plot(aggregate_prices.columns.tolist(), aggregate_prices.loc[('Reg', 'residential', 'mean'), :].values, color='red', linestyle=':',
+        label="""Median 'Traditional Utility' Price""")
+ax.plot(aggregate_prices.columns.tolist(), aggregate_prices.loc[('Reg', 'residential', 'wsjWtAvg'), :].values, color='blue', linestyle=':',
+        label="""WSJ: 'Traditional Utility' 'Average'""")
+fig.canvas.draw()
+ax.legend(loc='upper right')
 
 #%%
 # So now we calculate
