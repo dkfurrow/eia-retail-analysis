@@ -88,7 +88,7 @@ for zipped_file in zipped_files:
 print("cleaning extraneous null values...")
 all_data = all_data[all_data.State.notnull()]  # these are all null rows, 2004-2009
 all_data = all_data[(all_data.Rev != 0.) & (all_data.Sales != 0.) & (all_data.Customers != 0.)]
-all_data.reset_index(inplace=True)
+all_data.reset_index(inplace=True, drop=True)
 print("all eia revenue and sales data cleaned and assembled: {0:,} rows".format(len(all_data)))
 
 #%%
@@ -99,6 +99,7 @@ all_data['ChkAvgPrc'] = np.abs(all_data['AvgPrc'] - all_data['RevPerSales'])
 num_cols_not_tying = len(all_data[(all_data.ChkAvgPrc > 0.01)])
 print("AvgPrc equal to RevPerSales except in {0:d} instances where AvgPrc was listed as zero"
       .format(num_cols_not_tying))
+print("It appears that these values are associated with adjustments or behind-meter sales from solar...")
 print("Unique categories of Ownership in data:\n{0}".format("\n".join(list(all_data['Ownership'].unique()))))
 print("Create column 'OwnershipType' to capture 'Reg' vs 'DeReg' where\n"
       " 'DReg' => 'Power Marketer' or 'Retail Energy Provider' and 'Reg; => all other")
@@ -140,29 +141,133 @@ for aggfunc in aggfuncs:
     print(tx_data.pivot_table(values='AvgPrc', index=['OwnershipType', 'CustClass'],
                               columns='Year', aggfunc=aggfunc).loc[idx[:, 'residential'], :])
 print("So we observe that...")
-print("(1) the 'averages' in the article must be weighted average...")
+print("(1) the 'averages' in the article must be weighted average, because these values do not tie...")
 print("(2) the customer of both the 'average' and 'median' retail provider experienced significantly lower prices\n"
-      "than those characterized in the article")
+      "than those characterized as 'average' in the article, and the median retail provider customer has often\n"
+      "received a lower price than the median regulated customer")
 
 #%%
-print("")
-print("Sort Weighted Averages, print out some summaries...")
-total_wt_avg = pd.concat([wt_avg, wsj_data], axis=0)
-total_wt_avg.sort_index(inplace=True)
-print(total_wt_avg.loc[idx[:, ['residential', 'wsj']], :])
-print(total_wt_avg.loc[idx[:, ['commercial', 'industrial']], :])
+print("calculate EIA weighted average prices...")
+tx_data.drop(['ChkAvgPrc', 'AvgPrc'], axis=1, inplace=True)
+#%%
+cats = "Year CustClass Entity State Ownership OwnershipType".split()
+value_types = 'Customers Rev Sales'.split()
+tx_records = pd.DataFrame()
+for value_type in value_types:
+    print("stacking {0}".format(value_type))
+    cols_to_fetch = cats.copy()
+    cols_to_fetch.append(value_type)
+    df = tx_data[cols_to_fetch].copy()
+    df.insert(loc=len(df.columns) - 1, column='ValueType', value=value_type)
+    df.rename(columns={value_type: 'Value'}, inplace=True)
+    if len(tx_records) == 0:
+        tx_records = pd.DataFrame(df)
+    else:
+        tx_records = pd.concat([tx_records, df])
+tx_records.reset_index(drop=True, inplace=True)
+#%%
+aggregates = tx_records.pivot_table(index=['ValueType', 'OwnershipType', 'CustClass'], columns='Year', aggfunc='sum')
+aggregates.columns = aggregates.columns.droplevel(level=0)
+print("Note, we take only commercial, industrial and residential categories for comparison")
+subset = ['commercial', 'industrial', 'residential']
+aggregates = aggregates.loc[idx[:, :, subset], :]
+#%%
+new_index = pd.MultiIndex.from_product([['WtAvgUnitPrc'], aggregates.index.get_level_values(1).unique(),
+                                        aggregates.index.get_level_values(2).unique()], names=aggregates.index.names)
+wt_avg_prc_df = pd.DataFrame(data=aggregates.loc[idx['Rev', :, :], :].values * 100. /
+                                  aggregates.loc[idx['Sales', :, :], :].values,
+                             index=new_index, columns=aggregates.columns)
+aggregates = aggregates.append(wt_avg_prc_df)
+new_index = pd.MultiIndex.from_product([['WsjAvgUnitPrc'], ['DeReg', 'Reg'], ['residential']],
+                                       names=aggregates.index.names)
+aggregates = aggregates.append(pd.DataFrame(data=wsj_data.values, index=new_index, columns=aggregates.columns))
+print("compare calculated weighted average with wsj article\n")
+print(aggregates.loc[idx[['WtAvgUnitPrc', 'WsjAvgUnitPrc'], :, ['residential']], :].sort_index(level=1))
+print("\nand they appear to tie closely")
+#%%
+wt_avg_prc_diff = aggregates.loc[idx['WtAvgUnitPrc', 'DeReg', :], :].values - \
+                     aggregates.loc[idx['WtAvgUnitPrc', 'Reg', :], :].values
+new_index = pd.MultiIndex.from_product([['WtAvgUnitPrcDiff'], ['DeRegMinusReg'], subset],
+                                       names=aggregates.index.names)
+aggregates = aggregates.append(pd.DataFrame(data=wt_avg_prc_diff, index=new_index, columns=aggregates.columns))
+print("looking at *all* price differentials we see...")
+print(aggregates.loc[idx['WtAvgUnitPrcDiff', :, :], :])
+print("so the experience of the commercial and industrial markets appears to diverge from residential...")
 
 #%%
-print("weighted average...")
+print("applying that weighted average price difference to Sales, converting to $Bn, we find...")
+new_index = pd.MultiIndex.from_product([['WAvgPrcDiff*Sales'], ['DeRegMinusReg'], subset],
+                                       names=aggregates.index.names)
+wAvgPrcDiffXSales = aggregates.loc[idx['WtAvgUnitPrcDiff', :, :], :].values * \
+                    aggregates.loc[idx['Sales', 'DeReg', :], :].values / 1.e8
+aggregates = aggregates.append(pd.DataFrame(data=wAvgPrcDiffXSales, index=new_index, columns=aggregates.columns))
+print("looking at *all* price differentials we see...")
+wAvgPrcDiffXSales2 = aggregates.loc[idx['WAvgPrcDiff*Sales', :, :], :].copy()
+wAvgPrcDiffXSales2.loc[('Total', 'DeRegMinusReg', 'total'), :] = wAvgPrcDiffXSales2.sum(axis=0)
+print("Summing across customer categories we see...")
+print(wAvgPrcDiffXSales2)
+print("So benefits in commercial and industrial in recent years have often more than offset residential")
+print("Summing across years to check with article data, we see...")
+print(aggregates.loc[idx['WAvgPrcDiff*Sales', :, :], :].sum(axis=1))
+print("So we tie to the '$28Bn' proxy in the article...so the math is correct")
+print("for context, total power revenues during the whole period were...")
+print(aggregates.loc[idx['Rev', 'DeReg', :], :].sum(axis=1) / 1.e6)
+print("over the following customer base...")
+dereg_customer_count = aggregates.loc[idx['Customers', 'DeReg', :], :]
+print(dereg_customer_count)
+print("differential per customer-month")
+dollarsPerCustMonth = ((aggregates.loc[idx['WAvgPrcDiff*Sales', :, :], :] * 1.e9).values /
+                      aggregates.loc[idx['Customers', 'DeReg', :], :].values) / 12.
+new_index = pd.MultiIndex.from_product([['AppliedValPerCustMonth'], ['DeRegMinusReg'], subset],
+                                       names=aggregates.index.names)
+print(pd.DataFrame(data=dollarsPerCustMonth, index=new_index, columns=aggregates.columns))
 
-sums = tx_data.pivot_table(index=['OwnershipType', 'CustClass'], columns='Year', aggfunc='sum')
 
+print()
+
+#%%
+sums = pd.DataFrame()
+for category in ['Customers', 'Rev', 'Sales']:
+    cat_df = tx_data[category]
 
 tx_revs_per_sales = np.divide(sums.loc[:, idx['Rev', :]], sums.loc[:, idx['Sales', :]]) * 100.
 wt_avg = pd.DataFrame(data=tx_revs_per_sales.values, index=sums.index, columns=data_years)
 wt_avg.columns.name = 'Year'
+aggregated = pd.concat({"WeightedAvg": wt_avg}, keys=["WeightedAvg"], names=['Value_Category', 'OwnershipType', 'CustClass'])
+print(aggregated)
+print("Compare with WJS Values")
+print(wsj_data)
+print("And those tie quite closely!")
 #%%
+print("Take weighted average price differentials, apply to sales in MWH, convert to $BN")
 
+
+aggregated = aggregated.loc[idx[:, :, subset], :]
+dereg_minus_reg = np.add(aggregated.loc[idx[:, 'DeReg', :], :], -aggregated.loc[idx[:, 'Reg', :], :])
+new_index = pd.MultiIndex.from_product([['WtAvgDiff'], ['DeRegMinusReg'], dereg_minus_reg.index.get_level_values(2)],
+                                   names=dereg_minus_reg.index.names)
+dereg_minus_reg.index = new_index
+print("so the differences in *weighted average* prices are...")
+print(dereg_minus_reg)
+dereg_sales = sums.loc[idx['DeReg', subset], idx['Sales', :]]
+print("against these sales in MWH...")
+dereg_sales.columns = dereg_minus_reg.columns
+print(dereg_sales)
+new_index = pd.MultiIndex.from_product([['WtAvgDiff*Sales'], ['DeRegMinusReg'],
+                                        dereg_minus_reg.index.get_level_values(2)], names=dereg_minus_reg.index.names)
+diffTimeSales = pd.DataFrame(data=np.multiply(dereg_minus_reg.values, dereg_sales.values) / 1.e8, index = new_index,
+                             columns=dereg_minus_reg.columns)
+print("Yields this difference in $bn...")
+print(diffTimeSales)
+print("Compared to these actual costs in $bn")
+actual_revs = pd.concat({'Revs_Bn':(sums.loc[idx["DeReg", subset], idx['Rev', :]] / 1.e6)},
+                        keys=['Revs_Bn'], names=['Value_Category'])
+print(actual_revs)
+print("And this number of customers")
+total_cust = pd.concat({'Custs_Mn':(sums.loc[idx["DeReg", subset], idx['Customers', :]] / 1.e6)},
+                        keys=['Custs_Mn'], names=['Value_Category'])
+print("So this dollar figure per customer")
+print(diffTimeSales * 1.e9 / (sums.loc[idx["DeReg", subset], idx['Customers', :]] ))
 #%%
 # reconcile downloaded data with WSJ, graph to check
 res_reconcile = total_wt_avg.loc[idx[:, ['residential', 'wsj']], :]
