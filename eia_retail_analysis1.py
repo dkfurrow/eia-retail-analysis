@@ -10,6 +10,7 @@ from pprint import pprint
 from zipfile import ZipFile
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
 # %%
 import numpy as np
 import pandas as pd
@@ -177,7 +178,7 @@ print("(2) the customer of both the 'average' and 'median' retail provider exper
       "received a lower price than the median regulated customer")
 #%%
 print("Well, the fact that the weighted average varies so much from the median and mean supplier is interesting...")
-print("Let's redo their graph, include the customer of the median supplier")
+print("Let's redo the graph from the article, include the customer of the median supplier")
 plt.rc('font', size=12)
 fig, ax = plt.subplots(figsize=(10, 6))
 ax.set_xlabel('Year')
@@ -206,32 +207,78 @@ plt.show()
 print("So, calculate weighted average price, compare to wsj data...")
 print("Note, we take only commercial, industrial and residential categories for comparison,\n"
       " dropping 'all' and 'transport")
-aggregates = tx_records.pivot_table(values='Value', index=['ValueType', 'OwnershipType', 'CustClass'],
-                                    columns='Year', aggfunc='sum')
+aggregate_sums = tx_records.pivot_table(values='Value', index=['ValueType', 'OwnershipType', 'CustClass'],
+                                        columns='Year', aggfunc='sum')
 
-aggregates = aggregates.loc[idx[:, :, cust_subset], :]
+aggregate_sums = aggregate_sums.loc[idx[:, :, cust_subset], :]
 
-new_index = pd.MultiIndex.from_product([['calcWtAvg'], aggregates.index.get_level_values(1).unique(),
-                                        aggregates.index.get_level_values(2).unique()],
+new_index = pd.MultiIndex.from_product([['calcWtAvg'], aggregate_sums.index.get_level_values(1).unique(),
+                                        aggregate_sums.index.get_level_values(2).unique()],
                                        names=['Aggregate', 'OwnershipType', 'CustClass'])
-wt_avg_prc_df = pd.DataFrame(data=aggregates.loc[idx['Rev', :, :], :].values * 100. /
-                                  aggregates.loc[idx['Sales', :, :], :].values,
-                             index=new_index, columns=aggregates.columns)
+wt_avg_prc_df = pd.DataFrame(data=aggregate_sums.loc[idx['Rev', :, :], :].values * 100. /
+                                  aggregate_sums.loc[idx['Sales', :, :], :].values,
+                             index=new_index, columns=aggregate_sums.columns)
 wt_avg_prc_df = wt_avg_prc_df.reorder_levels(order=[1, 2, 0], axis=0)
 aggregate_prices = pd.concat([aggregate_prices, wt_avg_prc_df], axis=0)
 aggregate_prices.sort_index(axis=0, inplace=True)
 print("compare calculated weighted average with wsj article\n")
 print(aggregate_prices.loc[idx[:, 'residential', ['calcWtAvg', 'wsjWtAvg']], :])
 print("\nand they appear to tie closely")
+#%%
+print("okay, now that we've established the problem with using 'weighted average' as a central tendancy,\n"
+      "let's explore 2018 reesults")
+
+res_tx_2018_dereg = tx_records[(tx_records['Year'] == 2018) & (tx_records['CustClass'] == 'residential') &
+                               (tx_records['OwnershipType'] == 'DeReg')]  # 66 records of AvgPrc and Customers
+res_tx_2018_dereg[res_tx_2018_dereg.ValueType == 'AvgPrc']['Value'].describe(percentiles=[0.1, 0.25, 0.5, 0.75, 0.9])
+
+price_dict = OrderedDict(zip(res_tx_2018_dereg[res_tx_2018_dereg['ValueType'] == 'AvgPrc']['Value'],
+                      res_tx_2018_dereg[res_tx_2018_dereg['ValueType'] == 'Customers']['Value']))
+
+def millions(x, pos):
+    'The two args are the value and tick position'
+    return "{0:.2f}".format(x*1e-6)
+
+formatter = FuncFormatter(millions)
+fig, ax = plt.subplots(figsize=(10, 5)) #10, 6
+# fig.subplots_adjust(left=0.09, right=0.95, top=0.85, bottom=0.2) #left=0.075, right=0.95, top=0.9, bottom=0.25
+_ = ax.bar(price_dict.keys(), height=price_dict.values(), align='center', width=0.3)
+# ax.set_xticks(list(np.arange(len(other_included))))
+# ax.set_xticklabels(other_included.index.tolist(), rotation=90)
+ax.set_xlim([4., 15.])
+ax.yaxis.set_major_formatter(formatter)
+ax.set_axisbelow(True)
+ax.set_title("'Retail Provider' Customer Prices, Texas, 2018")
+ax.set_xlabel('Price (cents/kwh)')
+ax.set_ylabel('Number of Customers (Millions)')
+print("put in annotations")
+
+reg_res_tx_2018_wtAvg = aggregate_prices.loc[idx['Reg', 'residential', 'calcWtAvg'], 2018]
+dereg_res_tx_2018_wtAvg = aggregate_prices.loc[idx['DeReg', 'residential', 'calcWtAvg'], 2018]
+dereg_res_tx_2018_median = aggregate_prices.loc[idx['DeReg', 'residential', 'median'], 2018]
+dereg_received_price_example = 9.1
+annotate_data = [(dereg_received_price_example, 'My Fixed Price\n Aug 2018', 1.2e6),
+                 (dereg_res_tx_2018_median, 'Median Supplier\n price', 1.4e6),
+                 (reg_res_tx_2018_wtAvg, "Wt Avg\n 'Trad Utilities'", 1.2e6),
+                 (dereg_res_tx_2018_wtAvg, "Wt Avg\n 'Retail Provider'", 1.4e6)]
+for price, label, text_height in annotate_data:
+    ax.annotate(label, xy=(price, .8e6), xytext=(price, text_height),
+                arrowprops=dict(facecolor='black'), horizontalalignment='center',
+                verticalalignment='top', fontsize=10)
+
+plt.show()
+#%%
+print("Who were the top 5 suppliers by price?")
+res_tx_2018_dereg.pivot_table(values='Value', index='Entity', columns='ValueType').sort_values(by='Customers', ascending=False).head()
 
 #%%
-wt_avg_prc_diff = aggregates.loc[idx['WtAvgUnitPrc', 'DeReg', :], :].values - \
-                     aggregates.loc[idx['WtAvgUnitPrc', 'Reg', :], :].values
-new_index = pd.MultiIndex.from_product([['WtAvgUnitPrcDiff'], ['DeRegMinusReg'], cust_subset],
-                                       names=aggregates.index.names)
-aggregates = aggregates.append(pd.DataFrame(data=wt_avg_prc_diff, index=new_index, columns=aggregates.columns))
+prc_diff = aggregate_prices.loc[idx['DeReg', :, 'calcWtAvg'], :].values - \
+                     aggregate_prices.loc[idx['Reg', :, 'calcWtAvg'], :].values
+new_index = pd.MultiIndex.from_product([['DeRegMinusReg'], cust_subset, ['WtAvgUnitPrcDiff']],
+                                       names=aggregate_prices.index.names)
+prc_diff = pd.DataFrame(data=prc_diff, index=new_index, columns=aggregate_prices.columns)
 print("looking at *all* price differentials we see...")
-print(aggregates.loc[idx['WtAvgUnitPrcDiff', :, :], :])
+print(prc_diff)
 print("so the experience of the commercial and industrial markets appears to diverge from residential...")
 
 #%%
@@ -279,8 +326,6 @@ print(wsj_data)
 print("And those tie quite closely!")
 #%%
 print("Take weighted average price differentials, apply to sales in MWH, convert to $BN")
-
-
 aggregated = aggregated.loc[idx[:, :, cust_subset], :]
 dereg_minus_reg = np.add(aggregated.loc[idx[:, 'DeReg', :], :], -aggregated.loc[idx[:, 'Reg', :], :])
 new_index = pd.MultiIndex.from_product([['WtAvgDiff'], ['DeRegMinusReg'], dereg_minus_reg.index.get_level_values(2)],
@@ -329,40 +374,7 @@ ax.plot(com_ind.columns.tolist(), com_ind.loc[('Reg', 'industrial'), :].values, 
         label="'Traditional': Industrial")
 fig.canvas.draw()
 ax.legend(loc='upper right')
-# %%
-res_tx_2018_dereg = tx_data[(tx_data['Year'] == 2018) & (tx_data['CustClass'] == 'residential')
-                            & (tx_data['AvgPrc'].notnull()) & (tx_data['OwnershipType'] == 'DeReg')]
-price_dict = dict(zip(res_tx_2018_dereg['AvgPrc'].values, res_tx_2018_dereg['Customers'].values))
 
-from matplotlib.ticker import FuncFormatter
-def millions(x, pos):
-    'The two args are the value and tick position'
-    return "{0:.2f}".format(x*1e-6)
-
-formatter = FuncFormatter(millions)
-fig, ax = plt.subplots(figsize=(10, 5)) #10, 6
-# fig.subplots_adjust(left=0.09, right=0.95, top=0.85, bottom=0.2) #left=0.075, right=0.95, top=0.9, bottom=0.25
-_ = ax.bar(price_dict.keys(), height=price_dict.values(), align='center', width=0.8)
-# ax.set_xticks(list(np.arange(len(other_included))))
-# ax.set_xticklabels(other_included.index.tolist(), rotation=90)
-ax.set_xlim([4., 15.])
-ax.yaxis.set_major_formatter(formatter)
-ax.set_axisbelow(True)
-ax.set_title("'Retail Provider' Customer Prices, Texas, 2018")
-ax.set_xlabel('Price (cents/kwh)')
-ax.set_ylabel('Number of Customers (Millions)')
-print("put in annotations")
-
-reg_res_tx_2018_wtAvg = wt_avg.loc[idx['Reg', 'residential'], 2018]
-dereg_received_price_example = 9.1
-annotate_data = [(dereg_received_price_example, 'Fixed Price\n Aug 2018'),
-                 (reg_res_tx_2018_wtAvg, "Weighted Average\n 'Traditional Utilities'")]
-for price, label in annotate_data:
-    ax.annotate(label, xy=(price, .8e6), xytext=(price, 1.2e6),
-                arrowprops=dict(facecolor='black'), horizontalalignment='center',
-                verticalalignment='top', fontsize=10)
-
-plt.show()
 # %%
 print("Who were the most expensive Retail Providers?")
 print(res_tx_2018_dereg.sort_values(by=['Customers', 'AvgPrc'], ascending=False).head(10))
