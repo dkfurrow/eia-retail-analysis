@@ -241,10 +241,7 @@ def millions(x, pos):
 
 formatter = FuncFormatter(millions)
 fig, ax = plt.subplots(figsize=(10, 5)) #10, 6
-# fig.subplots_adjust(left=0.09, right=0.95, top=0.85, bottom=0.2) #left=0.075, right=0.95, top=0.9, bottom=0.25
 _ = ax.bar(price_dict.keys(), height=price_dict.values(), align='center', width=0.3)
-# ax.set_xticks(list(np.arange(len(other_included))))
-# ax.set_xticklabels(other_included.index.tolist(), rotation=90)
 ax.set_xlim([4., 15.])
 ax.yaxis.set_major_formatter(formatter)
 ax.set_axisbelow(True)
@@ -269,7 +266,8 @@ for price, label, text_height in annotate_data:
 plt.show()
 #%%
 print("Who were the top 5 suppliers by price?")
-res_tx_2018_dereg.pivot_table(values='Value', index='Entity', columns='ValueType').sort_values(by='Customers', ascending=False).head()
+res_tx_2018_dereg.pivot_table(values='Value', index='Entity', columns='ValueType')\
+    .sort_values(by='Customers', ascending=False).head()
 
 #%%
 prc_diff = aggregate_prices.loc[idx['DeReg', :, 'calcWtAvg'], :].values - \
