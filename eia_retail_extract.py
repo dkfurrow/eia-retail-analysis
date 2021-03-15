@@ -16,6 +16,7 @@ pd.set_option('display.width', 1000)
 pd.options.display.float_format = '{:,.2f}'.format
 idx = pd.IndexSlice
 #%%
+# files from https://www.eia.gov/electricity/data/eia861/
 DOWNLOAD_ROOT = "./data"  # Put zipfiles in this directory
 zipped_dict = {}
 zipped_files = glob.glob(str(Path(DOWNLOAD_ROOT, 'f86*.zip')))
