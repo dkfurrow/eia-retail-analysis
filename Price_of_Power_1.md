@@ -18,11 +18,18 @@ And, I have a stack of similar or lower-priced records dating back to 2010. My 2
 ### Questions raised, ***but not answered***: ###
 1. So where is this data?  How can I analyze it myself?
 1. Who are the 'Traditional Utilities' and 'Retail Providers'? What can be learned from the price comparison?  What are the limitations of such a comparison?
-3. Why are my results so different? What is meant by 'average' price?
+3. What is meant by 'average' price? Why are my results so different?
 1. What has gone on in the (roughly 2/3) of the market for commercial and industrial customers?
 1. How can I place this $28 Billion in context?  What are some insights that can be gained from this data?
 
 ***We will answer those questions in two parts.  This article will focus on questions 1-3, and a subsequent article will focus on 4-5.***
+
+###Disclosures: Who am I, why am I writing this, and how can you trust me?###
+
+I'll answer the last one first--*I'm giving you the code*...if you want, you can run it from the EIA files on their site [here](https://www.eia.gov/electricity/data/eia861/) all the way through each analysis step.  If you spot an error, or have an extension, I will gladly take [pull requests](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests).
+
+As for who I am and why I'm doing this, I'm an independent energy consultant, and I'm not hard to find on [linkedin](https://www.linkedin.com/in/dale-furrow-68aa02166/). I have had retail power clients, but the views here are entirely my own, and this work isn't associated with any of my clients, past or present.  I'm writing this because (1) I don't think this data has been represented fairly, and (2) this is an interesting exercise in extracting, cleaning and analyzing a dataset using python, pandas, and matplotlib. and (3) I'm interested in promoting the accurate dissemination and analysis of public data, and this is a good example.
+
 
 ###Code, Formatting, Conventions###
 All of the data and code supporting this article can be found [here](https://github.com/dkfurrow/eia-retail-analysis).  All of the code is in python (I used version 3.83).  The python files are in ordinary *.py format (i.e. they are not jupyter notebooks).  I have separated the code into 'code cells' consistent with those used by the [Spyder IDE](https://docs.spyder-ide.org/current/editor.html). 
@@ -75,4 +82,59 @@ You can most certainly *not* definitively ascertain the effectiveness of either 
 	1. Local generation asset mix: Does the local utility own cheap hydro generation?  Or natural gas generation [subject to substantial price changes between 2004-2019]?  Are their (inefficient) assets maintained solely for reliability?
 	1. Has the customer chosen (more expensive)renewable generation in lieu of fossil power?  That's a choice in Texas, and other states.
 
+
 **So, it's important to have some humility here, and recognize what the data *can and cannot show.***
+
+###So what are some useful preliminary findings of the data?###
+
+Well, the basics:
+We've extracted Texas records from total, that's 42,616 rows in total.  Focusing on the `Customer` ValueType, we have the following counts across all years:
+
+
+    print(pd.DataFrame(tx_records[tx_records.ValueType == 'Customers']['CustClass'].value_counts()).to_markdown())
+
+|CustClass                |   Count |
+|:---------------|------------:|
+| all            |        3150 |
+| commercial     |        2935 |
+| residential    |        2800 |
+| industrial     |        1740 |
+| transportation |          29 |
+
+We're going to focus on the residential group here.
+
+The 'Retail Provider' group ('DeReg' in our parlance) includes 158 unique names...but a much smaller subset in any one year.  The data don't include ownership, or unique identifiers, so we can't track name changes.  But in any case, here is the count over time.
+
+|        |   2004 |   2005 |   2006 |   2007 |   2008 |   2009 |   2010 |   2011 |   2012 |   2013 |   2014 |   2015 |   2016 |   2017 |   2018 |   2019 |
+|:-------|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|
+| Entity |     26 |     31 |     31 |     33 |     45 |     49 |     50 |     54 |     60 |     56 |     60 |     63 |     64 |     66 |     66 |     68 |
+
+    deregs = tx_records[(tx_records.OwnershipType == 'DeReg') & (tx_records.CustClass == 'residential') &
+       (tx_records.ValueType == 'Customers') & (tx_records.Value > 0.)]
+    print('Unique Dereg Entities over all time: {0:,}'.format(len(deregs['Entity'].unique())))
+    print('Unique Dereg Entities: {0:,}'.format(len(deregs[deregs['Year'] == 2019]['Entity'].unique())))
+    print(deregs.pivot_table(values='Entity', columns='Year', aggfunc='count').to_markdown())
+    
+The 'Traditional Utilities' group is of course more stable over time, but they have little in common, other than they serve customers in the 270K square mile state.  They span multiple ownership types, all three North American interconnects, multiple climates, and types/levels of asset ownership.  In 2019, there were 139 such entities, in the following categories:
+
+| Type             |   Ownership |
+|:-----------------|------------:|
+| Cooperative      |          66 |
+| Municipal        |          65 |
+| Investor Owned   |           4 |
+| Behind the Meter |           3 |
+| Other            |           1 |
+| Total            |         139 |
+
+    regs = tx_records[(tx_records.OwnershipType == 'Reg') & (tx_records.CustClass == 'residential') &
+       (tx_records.ValueType == 'Customers') & (tx_records.Value > 0.)]
+    value_counts = pd.DataFrame(regs[regs.Year == 2019]['Ownership'].value_counts())
+    total= value_counts.sum(axis=0).astype('int64')
+    total.name = 'Total'
+    value_counts = value_counts.append(total)
+    value_counts.index.name = "Type"
+    print(value_counts.to_markdown())
+    
+Anyway, we should get on to examining prices.
+
+###Okay, what's this 'average' price?###
