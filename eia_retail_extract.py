@@ -23,7 +23,8 @@ zipped_files = glob.glob(str(Path(DOWNLOAD_ROOT, 'f86*.zip')))
 print("Data will be extracted from the following files")
 pprint(zipped_files)
 #%%
-# We want to extract tables 6-10, which have meanings as follows
+# We want to extract
+# tables 6-10, which have meanings as follows
 file_data_class = dict([('table6', 'residential'), ('table7', 'commercial'), ('table8', 'industrial'),
                         ('table9', 'transportation'), ('table10', 'all')])
 # EIA switched the order of revenue and sales columns between 2007 and 2008, hence we have two units dictionaries
