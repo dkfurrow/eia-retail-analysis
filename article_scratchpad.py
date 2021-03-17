@@ -25,13 +25,15 @@ print(pd.DataFrame(tx_records[tx_records.ValueType == 'Customers']['CustClass'].
 len(tx_records[(tx_records.OwnershipType == 'DeReg') & (tx_records.CustClass == 'residential') &
                (tx_records.ValueType == 'Customers') & (tx_records.Value > 0.)]['Entity'].unique())
 #%%
+# characterize unregulated market participants
 deregs = tx_records[(tx_records.OwnershipType == 'DeReg') & (tx_records.CustClass == 'residential') &
                (tx_records.ValueType == 'Customers') & (tx_records.Value > 0.)]
 print('Unique Dereg Entities over all time: {0:,}'.format(len(deregs['Entity'].unique())))
 print('Unique Dereg Entities: {0:,}'.format(len(deregs[deregs['Year'] == 2019]['Entity'].unique())))
-print(deregs.pivot_table(values='Entity', columns='Year', aggfunc='count').to_markdown())
+print(deregs.pivot_table(values='Entity', columns='Year', aggfunc='count').to_html())
 
 #%%
+# characterize regulated entities
 regs = tx_records[(tx_records.OwnershipType == 'Reg') & (tx_records.CustClass == 'residential') &
                (tx_records.ValueType == 'Customers') & (tx_records.Value > 0.)]
 value_counts = pd.DataFrame(regs[regs.Year == 2019]['Ownership'].value_counts())

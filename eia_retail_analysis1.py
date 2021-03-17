@@ -31,34 +31,30 @@ data_years = sorted(list(all_records['Year'].unique()))
 tx_records = all_records[all_records['State'] == 'TX'].copy()
 print("extract data from Texas, {0:,} rows".format(len(tx_records)))
 #%%
-print("Copy WSJ Article Data from Json, load into dataframe")
+# load wall street journal data , calculate simple averages and medians, compare.
 wsj_data_retail_prov = [{"y":0.104512769},{"y":0.119135077},{"y":0.147907235},{"y":0.141452687},{"y":0.145587637},
                         {"y":0.141123651},{"y":0.127802827},{"y":0.11816842},{"y":0.11753115},{"y":0.120762946},
                         {"y":0.125853745},{"y":0.122157},{"y":0.113752593},{"y":0.111016108},{"y":0.115200733},
                         {"y":0.125923234}]
 wsj_data_retail_prov = [ele['y'] for ele in wsj_data_retail_prov]
-years = [["1/1/04","1/1/05","1/1/06","1/1/07","1/1/08","1/1/09","1/1/10","1/1/11","1/1/12","1/1/13","1/1/14","1/1/15"
-             ,"1/1/16","1/1/17","1/1/18","1/1/19"]]
 wsj_data_trad_uts = [{"y":0.086349232},{"y":0.094671363},{"y":0.100960378},{"y":0.0985534},{"y":0.109442624},
                      {"y":0.10041566},{"y":0.09992686},{"y":0.10082636},{"y":0.099043415},{"y":0.103632208},
                      {"y":0.108971341},{"y":0.106471592},{"y":0.104522108},{"y":0.108908586},{"y":0.107523383},
                      {"y":0.106381295}]
 wsj_data_trad_uts = [ele['y'] for ele in wsj_data_trad_uts]
-
 wsj_data = pd.DataFrame(data=None, index=data_years)
 wsj_data['DeReg'] = wsj_data_retail_prov
 wsj_data['Reg'] = wsj_data_trad_uts
 wsj_data = wsj_data[wsj_data.index >= np.min(data_years)].T.copy()
 wsj_CustClass = 'wsj_resident'
-wsj_index = pd.MultiIndex.from_tuples([('DeReg', wsj_CustClass), ('Reg', wsj_CustClass)], names=['OwnershipType', 'CustClass'])
+wsj_index = pd.MultiIndex.from_tuples([('DeReg', wsj_CustClass),
+                                       ('Reg', wsj_CustClass)],
+                                      names=['OwnershipType', 'CustClass'])
 wsj_data = pd.DataFrame(index=wsj_index, columns=data_years, data=np.multiply(wsj_data.values, 100.))
-print(wsj_data)
-#%%
-print("Compare to unweighted data EIA, mean and median; commercial, industrial, residential...")
+# get unweighted averages from data set, merge wsj data on to it...
 cust_subset = ['commercial', 'industrial', 'residential']
 avg_price_data = tx_records[(tx_records['ValueType'] == 'AvgPrc') & (tx_records['CustClass'].isin(cust_subset))]
 pd.options.display.float_format = '{:,.2f}'.format
-
 aggregate_prices = avg_price_data.pivot_table(values='Value', index=['OwnershipType', 'CustClass'],
                               columns='Year', aggfunc={'Value': [np.mean, np.median]})
 aggregate_prices.columns.names = ['Aggregate', 'Year']  # name aggregates column, since there are two elements
@@ -68,15 +64,16 @@ wsj_data.sort_index(inplace=True)
 aggregate_prices.loc[('DeReg', 'residential', 'wsjWtAvg'), :] = wsj_data.loc[idx['DeReg', 'wsj_resident'], :]
 aggregate_prices.sort_index(inplace=True)
 aggregate_prices.loc[('Reg', 'residential', 'wsjWtAvg'), :] = wsj_data.loc[idx['Reg', 'wsj_resident'], :]
-print(aggregate_prices.loc[idx[:, 'residential', :], :])
-print("So we observe that...")
-print("(1) the 'averages' in the article must be weighted average, because these values do not tie...")
-print("(2) the customer of both the 'average' and 'median' retail provider experienced significantly lower prices\n"
-      "than those characterized as 'average' in the article, and the median retail provider customer has often\n"
-      "received a lower price than the median regulated customer")
+print(aggregate_prices.loc[idx[:, 'residential', :], :].to_markdown(floatfmt=".2f"))
+"""
+"So we observe that..."
+"(1) the 'averages' in the article must be weighted average, because these values do not tie..."
+"(2) the customer of both the 'average' and 'median' retail provider experienced significantly lower prices\n"
+"than those characterized as 'average' in the article, and the median retail provider customer has often\n"
+"received a lower price than the median regulated customer"
+"""
 #%%
-print("Well, the fact that the weighted average varies so much from the median and mean supplier is interesting...")
-print("Let's redo the graph from the article, include the customer of the median supplier")
+# graph the previous...
 plt.rc('font', size=12)
 fig, ax = plt.subplots(figsize=(10, 6))
 ax.set_xlabel('Year')

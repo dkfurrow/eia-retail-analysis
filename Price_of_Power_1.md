@@ -138,3 +138,5 @@ The 'Traditional Utilities' group is of course more stable over time, but they h
 Anyway, we should get on to examining prices.
 
 ###Okay, what's this 'average' price?###
+So we can copy the article data straight from the html (we actually did that previously--it's json data, appears to be feeding a d3.js routine).  We then exploit pandas pivot table functionality to get simple averages and medians for traditional utilities and retail providers.  Finally, we graph the medians vs the articles' 'averages' using Matplotlib.  That code is [here](https://github.com/dkfurrow/eia-retail-analysis/blob/master/eia_retail_analysis1.py).
+<img src="./files/pricey_power_revisited.png" alt="WSJ Data with simple mean and medians">
