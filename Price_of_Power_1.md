@@ -13,7 +13,7 @@ The article then takes the price differential in this graph (elsewhere defined a
 Well, that seemed clear enough, except, as someone who regularly shops power suppliers as a retail consumer in Texas, the numbers seemed...***suspiciously high***.  For example, rummaging around in my records, I found:
 <img src="./files/20180909_EFL.jpg" alt="August 2018 EFL">
 
-And, I have a stack of similar or lower-priced records dating back to 2010. My 2018 contract renewal, and the others, seemed to be considerably below *both* the 'Retail Provider' and 'Traditional Utility' numbers provided in the article.  Well, it's not as if this is some obscure marketing scheme--each year, when my contract expires, I go to the puc-sponsored website [powertochoose.org](http://powertochoose.org), choose "12-month, fixed price, sorted" and *choose the lowest price.*  Not a lot of brainpower involved there.  So I have a stack of these 'EFLs' over the last 10 years with similar results, all lower that this graph.
+And, I have a stack of similar or lower-priced records dating back to 2010. My 2018 contract renewal, and the others, seemed to be considerably below *both* the 'Retail Provider' and 'Traditional Utility' numbers provided in the article.  Well, it's not as if this is some obscure marketing scheme--each year, when my contract expires, I go to the puc-sponsored website [powertochoose.org](http://powertochoose.org), choose "12-month, fixed price, sorted" and *choose the lowest price.*  Not a lot of brainpower involved there.  So I have a stack of these '[EFLs](https://www.puc.texas.gov/industry/electric/rates/Default.aspx)' over the last 10 years with similar results, all lower that this graph.
 
 ### Questions raised, ***but not answered***: ###
 1. So where is this data?  How can I analyze it myself?
@@ -115,7 +115,7 @@ The 'Retail Provider' group ('DeReg' in our parlance) includes 158 unique names.
     print('Unique Dereg Entities: {0:,}'.format(len(deregs[deregs['Year'] == 2019]['Entity'].unique())))
     print(deregs.pivot_table(values='Entity', columns='Year', aggfunc='count').to_markdown())
     
-The 'Traditional Utilities' group is of course more stable over time, but they have little in common, other than they serve customers in the 270K square mile state.  They span multiple ownership types, all three North American interconnects, multiple climates, and types/levels of asset ownership.  In 2019, there were 139 such entities, in the following categories:
+The 'Traditional Utilities' group is of course more stable over time, but they have little in common, other than they serve customers in this 270K square mile state.  They span multiple ownership types, all three North American interconnects, multiple climates, and types/levels of asset ownership.  In 2019, there were 139 such entities, in the following categories:
 
 | Type             |   Ownership |
 |:-----------------|------------:|
@@ -138,5 +138,65 @@ The 'Traditional Utilities' group is of course more stable over time, but they h
 Anyway, we should get on to examining prices.
 
 ###Okay, what's this 'average' price?###
-So we can copy the article data straight from the html (we actually did that previously--it's json data, appears to be feeding a d3.js routine).  We then exploit pandas pivot table functionality to get simple averages and medians for traditional utilities and retail providers.  Finally, we graph the medians vs the articles' 'averages' using Matplotlib.  That code is [here](https://github.com/dkfurrow/eia-retail-analysis/blob/master/eia_retail_analysis1.py).
+So we can copy the article data straight from the html (we actually did that previously--it's json data, appears to be feeding a d3.js routine).  
+
+We then exploit pandas pivot table functionality to get simple averages and medians for traditional utilities and retail providers, and compare the article data to those calculated values.  That result is:
+
+|Value                                 |   2004 |   2005 |   2006 |   2007 |   2008 |   2009 |   2010 |   2011 |   2012 |   2013 |   2014 |   2015 |   2016 |   2017 |   2018 |   2019 |
+|:-------------------------------------|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|
+| Calc DeReg Mean     |   9.68 |  11.24 |  14.10 |  13.31 |  14.33 |  12.82 |  11.81 |  10.95 |  10.44 |  10.39 |  10.68 |   9.93 |   9.62 |   9.35 |   9.94 |  10.16 |
+| Calc DeReg Median   |   9.81 |  11.20 |  14.37 |  13.21 |  14.75 |  12.80 |  11.66 |  10.57 |  10.46 |  10.31 |  10.89 |  10.35 |   9.88 |   9.56 |   9.91 |  10.23 |
+| **WSJ DeReg 'Average'** |  10.45 |  11.91 |  14.79 |  14.15 |  14.56 |  14.11 |  12.78 |  11.82 |  11.75 |  12.08 |  12.59 |  12.22 |  11.38 |  11.10 |  11.52 |  12.59 |
+| Calc Reg Mean       |   9.27 |  10.26 |  11.07 |  10.98 |  11.98 |  11.34 |  11.19 |  11.16 |  10.69 |  10.96 |  11.32 |  11.40 |  11.17 |  11.07 |  11.26 |  11.30 |
+| Calc Reg Median     |   9.16 |  10.12 |  10.91 |  10.77 |  11.94 |  11.29 |  10.99 |  10.80 |  10.46 |  10.54 |  11.38 |  11.14 |  10.71 |  11.13 |  10.95 |  10.95 |
+| **WSJ Reg 'Average'**   |   8.63 |   9.47 |  10.10 |   9.86 |  10.94 |  10.04 |   9.99 |  10.08 |   9.90 |  10.36 |  10.90 |  10.65 |  10.45 |  10.89 |  10.75 |  10.64 |
+
+So right away, we can see that:
+
+1. The article values **in bold** have to be either weighted averages (that is, prices weighted by sales volume), or they are inconsistent with this data...we'll accept them as weighted averages for now, but we'll do that check below.
+2. The price distribution by sales must be *significantly skewed* for retail providers. For the most recent year, the weighted average is 24% above the median supplier's price. By contrast, for 'Traditional Utilities' that difference is minimal.
+3. My 2018-2019 fixed price contract detailed above makes a lot more sense now...below the median, but not hugely so.
+
+We definitely should do a visualization here...all 6 rows would be a bit busy, so we'll drop the 'simple mean' values.  The code is [here](https://github.com/dkfurrow/eia-retail-analysis/blob/master/eia_retail_analysis1.py).
 <img src="./files/pricey_power_revisited.png" alt="WSJ Data with simple mean and medians">
+
+So this allows us t see the trends a little better.  So we see here that (1) the median retail provider's price dropped below the median 'traditional utility's' price around 2011 and stayed below.  (2) the median retail provider's price is always below the 'weighted average', but that spread has increased for more recent data.
+
+### Confirm weighted average ###
+
+So, making use of pandas pivot_table and multi-index capabilities, we calculate a weighted average and compare...
+
+|                                       |   2004 |   2005 |   2006 |   2007 |   2008 |   2009 |   2010 |   2011 |   2012 |   2013 |   2014 |   2015 |   2016 |   2017 |   2018 |   2019 |
+|:--------------------------------------|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|
+| Calc DeReg Median |  10.45 |  11.91 |  14.79 |  14.15 |  14.57 |  14.13 |  12.79 |  11.81 |  11.75 |  12.07 |  12.57 |  12.21 |  11.37 |  11.11 |  11.53 |  12.61 |
+| **WSJ DeReg 'Average'**  |  10.45 |  11.91 |  14.79 |  14.15 |  14.56 |  14.11 |  12.78 |  11.82 |  11.75 |  12.08 |  12.59 |  12.22 |  11.38 |  11.10 |  11.52 |  12.59 |
+| Calc Reg Median   |   8.63 |   9.47 |  10.10 |   9.86 |  10.95 |  10.06 |  10.01 |  10.10 |   9.93 |  10.39 |  10.93 |  10.67 |  10.47 |  10.88 |  10.74 |  10.63 |
+| **WSJ Reg 'Average'**    |   8.63 |   9.47 |  10.10 |   9.86 |  10.94 |  10.04 |   9.99 |  10.08 |   9.90 |  10.36 |  10.90 |  10.65 |  10.45 |  10.89 |  10.75 |  10.64 |
+
+So we basically tie on weighted average...certainly down to the &#162;0.1/kwh level (1 [mill](https://www.statista.com/statistics/195814/us-power-plant-operating-expenses-since-1998/)).
+
+###Why are my results so different from 'Average'###
+
+Well, we've definitely got a clue from the work we've accomplished...this distribution is highly skewed.  Why?  Time for a bar chart, let's look at 2018 results.
+
+<img src="./files/2018_dereg_residential_prices_bar.png" alt="2018 Bar chart residential retail Texas">
+
+So, some of the companies with *the most customers* also charge *the highest prices.*  But there are 66 suppliers represented here, many with substantially better pricing than the *weighted average.* 
+
+By the way, it's fair to note, in an unregulated market, that price may not be the only issue...a customer might value Green power, for example, and be willing to pay for it.  Companies offer 'stable bill' plans, for example, where the 12-month total absolute bill is fixed--a form of insurance.  It's fair to note that, in cases like my EFL    
+
+So, who are those large suppliers on the right side of the graph?
+
+| Entity                         |   AvgPrc |    Customers |          Rev |         Sales |
+|:-------------------------------|---------:|-------------:|-------------:|--------------:|
+| TXU Energy Retail Co, LLC      |    12.93 | 1,402,204 | 2,685,755 | 20,773,115 |
+| Reliant Energy Retail Services |    12.74 | 1,340,640 | 2,370,478.20 | 18,609,917 |
+| Direct Energy Services         |    12.27 |   552,372 |   885,977.40 |  7,219,715 |
+| Ambit Energy Holdings, LLC     |     7.99 |   410,791 |   441,364 |  5,523,891 |
+| Green Mountain Energy Company  |    12.44 |   355,016 |   530,030.20 |  4,259,048 |
+
+No surprise here...they are the retail arms of the legacy regulated retail providers for the Dallas and Houston.
+
+So to summarize, we've started with an article in the business press, in which the authors used a weighted average price graph of a subsection of the electricity market to spin a large, headline-grabbing dollar figure.  We've demonstrated here how to pull that data, demonstrate the inappropriateness of the weighted-average calculation to summarize a diverse and dynamic market situation, and (at least partly) identified a major driver of the weighted average, namely the lack of price-conscious shopping by a significant section of the retail residential market (though we have not yet quantified that effect.  Finally, we've demonstrated some capabilities of python, pandas and matplotlib in the cleaning, processing, analysis and visualization of this data.
+
+For the next article, we'll consider the other sectors of the Texas electric retail market, and do some more in-depth analysis of the residential retail market discussed here.

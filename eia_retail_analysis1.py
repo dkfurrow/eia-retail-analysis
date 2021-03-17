@@ -12,6 +12,7 @@ from matplotlib.ticker import FuncFormatter
 # %%
 import numpy as np
 import pandas as pd
+from passlib.crypto._md4 import md4
 
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 500)
@@ -64,7 +65,16 @@ wsj_data.sort_index(inplace=True)
 aggregate_prices.loc[('DeReg', 'residential', 'wsjWtAvg'), :] = wsj_data.loc[idx['DeReg', 'wsj_resident'], :]
 aggregate_prices.sort_index(inplace=True)
 aggregate_prices.loc[('Reg', 'residential', 'wsjWtAvg'), :] = wsj_data.loc[idx['Reg', 'wsj_resident'], :]
-print(aggregate_prices.loc[idx[:, 'residential', :], :].to_markdown(floatfmt=".2f"))
+md_str: str = aggregate_prices.loc[idx[:, 'residential', :], :].to_markdown(floatfmt=".2f")
+repl_dict = {"('DeReg', 'residential', 'mean')": "Calc DeReg Mean",
+             "('DeReg', 'residential', 'median')": "Calc DeReg Median",
+             "('DeReg', 'residential', 'wsjWtAvg')": "WSJ DeReg 'Average'",
+             "('Reg', 'residential', 'mean')": "Calc Reg Mean",
+             "('Reg', 'residential', 'median')": "Calc Reg Median",
+             "('Reg', 'residential', 'wsjWtAvg')": "WSJ Reg 'Average'"}
+for v1, v2 in repl_dict.items():
+    md_str = md_str.replace(v1, v2)
+print(md_str)
 """
 "So we observe that..."
 "(1) the 'averages' in the article must be weighted average, because these values do not tie..."
@@ -117,7 +127,14 @@ wt_avg_prc_df = wt_avg_prc_df.reorder_levels(order=[1, 2, 0], axis=0)
 aggregate_prices = pd.concat([aggregate_prices, wt_avg_prc_df], axis=0)
 aggregate_prices.sort_index(axis=0, inplace=True)
 print("compare calculated weighted average with wsj article\n")
-print(aggregate_prices.loc[idx[:, 'residential', ['calcWtAvg', 'wsjWtAvg']], :])
+md_str = aggregate_prices.loc[idx[:, 'residential', ['calcWtAvg', 'wsjWtAvg']], :].to_markdown(floatfmt=".2f")
+repl_dict = {"('DeReg', 'residential', 'calcWtAvg')": "Calc DeReg Median",
+             "('DeReg', 'residential', 'wsjWtAvg')": "WSJ DeReg 'Average'",
+             "('Reg', 'residential', 'calcWtAvg')": "Calc Reg Median",
+             "('Reg', 'residential', 'wsjWtAvg')": "WSJ Reg 'Average'"}
+for v1, v2 in repl_dict.items():
+    md_str = md_str.replace(v1, v2)
+print(md_str)
 print("\nand they appear to tie closely")
 #%%
 print("okay, now that we've established the problem with using 'weighted average' as a central tendancy,\n"
@@ -140,8 +157,8 @@ _ = ax.bar(price_dict.keys(), height=price_dict.values(), align='center', width=
 ax.set_xlim([4., 15.])
 ax.yaxis.set_major_formatter(formatter)
 ax.set_axisbelow(True)
-ax.set_title("'Retail Provider' Customer Prices, Texas, 2018")
-ax.set_xlabel('Price (cents/kwh)')
+ax.set_title("'Retail Provider' Residential Customer Prices, Texas, 2018")
+ax.set_xlabel('Price (\u00A2/kwh)')
 ax.set_ylabel('Number of Customers (Millions)')
 print("put in annotations")
 
@@ -161,8 +178,10 @@ for price, label, text_height in annotate_data:
 plt.show()
 #%%
 print("Who were the top 5 suppliers by price?")
-res_tx_2018_dereg.pivot_table(values='Value', index='Entity', columns='ValueType')\
-    .sort_values(by='Customers', ascending=False).head()
+md_str = res_tx_2018_dereg.pivot_table(values='Value', index='Entity', columns='ValueType')\
+    .sort_values(by='Customers', ascending=False).head().to_markdown(floatfmt=",.2f")
+md_str = md_str.replace('.00', '')
+print(md_str)
 
 #%%
 prc_diff = aggregate_prices.loc[idx['DeReg', :, 'calcWtAvg'], :].values - \
