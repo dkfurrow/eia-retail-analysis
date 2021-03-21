@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Example Multivariate Regression
+"""Reproduce WSJ graph with 0 y-axis
 """
 # %%
 import numpy as np
