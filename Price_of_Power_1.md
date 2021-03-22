@@ -8,17 +8,17 @@ I read with interest the front-page Wall Street Journal article "[Texas Electric
 <img src="./files/20210224WSJGraphReproduction.png" alt="Wsj Graph">
 >Source: Wall Street Journal analysis of U.S. Energy Information Administration data
 
-The article then takes the price differential in this graph (elsewhere defined as a difference of 'average' prices for *residential customers only*), multiplies it by the amount of energy sold via retail providers, and *voila*: [28 *Billion Dollars*](https://youtu.be/BRAkobf-tVI?t=11).
+The article then takes the price differential in this graph (elsewhere defined as a difference of 'average' prices for *residential customers only*), multiplies it by the amount of energy sold via retail providers, and *voila*: [28 *Billion Dollars*](https://youtu.be/BRAkobf-tVI?t=11) (which, by the way, sounds *vastly more impressive* than the equivalent <span style="text-decoration: underline;">$26/Customer/Month</span> [Average 5.6MM customers over 192 months]).
 
 Well, that seemed clear enough, except, as someone who regularly shops power suppliers as a retail consumer in Texas, the numbers seemed...***suspiciously high***.  For example, rummaging around in my records, I found:
 <img src="./files/20180909_EFL.jpg" alt="August 2018 EFL">
 
-And, I have a stack of similar or lower-priced records dating back to 2010. My 2018 contract renewal, and the others, seemed to be considerably below *both* the 'Retail Provider' and 'Traditional Utility' numbers provided in the article.  Well, it's not as if I utilize some obscure marketing scheme--each year, when my contract expires, I go to the PUC-sponsored website [powertochoose.org](http://powertochoose.org), choose "12-month, fixed price, sorted" and *select the provider with the lowest price.*  Not a lot of brainpower involved there (although occasionally I have seen some plans which have different prices based on usage, so that *does* require some math).  In any case, I have a stack of these '[EFLs](https://www.puc.texas.gov/industry/electric/rates/Default.aspx)' over the last 10 years with similar results, all lower than *both lines* this graph.
+And, I have a stack of similar or lower-priced records dating back to 2010. My 2018 contract renewal, and the others, seemed to be considerably below *both* the 'Retail Provider' and 'Traditional Utility' numbers provided in the article.  Well, it's not as if I utilize some obscure marketing scheme--each year, when my contract expires, I go to the PUC-sponsored website [powertochoose.org](http://powertochoose.org), choose "12-month, fixed price, sorted" and *select the provider with the lowest price.*  Not a lot of brainpower involved there (although occasionally I have seen some plans which have different prices based on usage, so that *does* require some math).  In any case, I have a stack of these '[EFLs](https://www.puc.texas.gov/industry/electric/rates/Default.aspx)' over the last 10 years with similar results, all lower than *both lines* this graph.  And, I have found the process to be vastly easier than shopping for other household services such as internet service provider, insurance, cell phones, and streaming services.
 
 ### Questions raised, ***but not answered***: ###
 1. So where is this data?  How can I analyze it myself?
 1. Who are the 'Traditional Utilities' and 'Retail Providers'? What can be learned from the price comparison?  What are the limitations of such a comparison?
-1. What is meant by 'average' price?  The article clarifies, below the graph: "The Journal calculated separate annual statewide rates for utilities and retailers by adding up all of the revenue each type of provider received and dividing it by the kilowatt-hours of electricity it sold." So that's a weighted-average price (total retailer revenues divided by total retailer sales).  How well does *that* measure of central tendency summarize the typical customer experience? Why are my results so different?
+1. What is meant by 'average' price?  The article clarifies, below the graph: "The Journal calculated separate annual statewide rates for utilities and retailers by adding up all of the revenue each type of provider received and dividing it by the kilowatt-hours of electricity it sold." So that's a *weighted-average price* (total retailer revenues divided by total retailer sales).  How well does *that* measure of central tendency summarize the typical customer experience? Why are my results so different?
 1. What has transpired in the (roughly 2/3) of the market for commercial and industrial customers?  Why is *that* not part of this story?
 1. How can I place this $28 Billion in context?  What are some other insights that can be gained from this data?
 
@@ -26,11 +26,11 @@ And, I have a stack of similar or lower-priced records dating back to 2010. My 2
 
 ###Disclosures: Who am I, why am I writing this?###
 
-So this is largely a story about data and the problems with using one summary statistic to represent a dynamic and varied market.  You don't need a background in energy to gain something from this analysis, but nonetheless that is my background. I've spent the last decade or so as an independent energy consultant; on linkedin, here's [my profile](https://www.linkedin.com/in/dale-furrow-68aa02166/).  Previously, I worked in wholesale power trading and risk management. As a consultant, I have had retail power clients[but also banks, refiners, oil traders, etc]. But the point I'd like to make is: *the views here are entirely my own, and this work isn't associated with any of my clients, past or present.*  I'm writing this because 
+So this is largely a story about data and the problems with using one summary statistic to represent a dynamic and varied market.  You don't need a background in energy to gain something from this analysis, but nonetheless, that is my background. I've spent the last decade or so as an independent energy consultant.  Previously, I worked in wholesale power trading and risk management. As a consultant, I have done projects for retail power clients[but also banks, refiners, oil traders, etc]. The point I'd like to make is: *the views here are entirely my own, and this work isn't associated with any of my clients, past or present.*  I'm writing this because 
 <p></p>
 1. I think this data tells a more interesting story than has been portrayed, 
-1. The authors of the article didn't see fit to make their analysis or the [cleaned] dataset public, 
-1. This is an interesting exercise in extracting, cleaning and analyzing a dataset using python, pandas, and matplotlib. and
+1. The authors of the article didn't make their analysis or the [cleaned] dataset public, 
+1. This is an interesting exercise in extracting, cleaning and analyzing a dataset using python, pandas, and matplotlib.
 1. I'm interested in promoting the accurate dissemination and analysis of public data--this is a good example.
 
 ###Code, Formatting, Conventions###
@@ -83,10 +83,10 @@ You can most certainly *not* definitively ascertain the effectiveness of either 
 1. **Distribution or 'Wires' charges:** retail customers pay a (regulated) fee to access their (unique) distribution system--that value is bundled in the total price results here.
 1. **Generation and Load Characteristics** (Somewhat related to the above) There's no data here on 
 	1. Weather/load characteristics [flatter, easier-to-predict loads *should be* cheaper to serve, regardless of regulatory choice or market design alternative]
-	1. Local generation asset mix, e.g. Does the local utility own (cheap) hydro generation?  Or natural gas generation [a fuel subject to substantial price changes between 2004-2019]?  Are the local coal plants [scrubbed](https://www.gem.wiki/Scrubbers#:~:text=Scrubbers%20are%20an%20apparatus%20that,the%20formation%20of%20acid%20rain.), or equipped with [SCRs](https://en.wikipedia.org/wiki/Selective_catalytic_reduction), and if so, when did the installation go into rate base?  Are there (non-market-competitive) assets maintained solely for reliability?
-	1. Can the customer choose (more expensive)renewable generation in lieu of fossil power?  That's a choice in Texas, and one that carries cost implications.
+	1. Local generation asset mix, e.g. Does the local utility own (cheap) hydro generation?  Or natural gas generation [a fuel subject to substantial price changes between 2004-2019]?  Are the utility's coal plants [scrubbed](https://www.gem.wiki/Scrubbers#:~:text=Scrubbers%20are%20an%20apparatus%20that,the%20formation%20of%20acid%20rain.), or equipped with [SCRs](https://en.wikipedia.org/wiki/Selective_catalytic_reduction), and if so, when did the installation go into rate base?  Are there (non-market-competitive) assets maintained solely for reliability?
+	1. Whether the customer can choose (more expensive)renewable generation in lieu of fossil power.  That's a choice in Texas, and one that carries cost implications.
 
-**So, it's important to have some humility here, and recognize what the data *can and cannot show.  Simple price analysis is a necessary but insufficient method to determine the impact of retail electric deregulation.***
+**So, it's important to have some humility here, and recognize what the data *can and cannot show.  Simple price analysis is a necessary but insufficient requirement to determine the impact of retail electric deregulation.  Please bear these caveats in mind as we execute this analysis.***
 
 ###So what are some useful preliminary findings of the data?###
 
@@ -117,7 +117,7 @@ The 'Retail Provider' group ('DeReg' in our parlance) includes 158 unique names.
     print('Unique Dereg Entities over all time: {0:,}'.format(len(deregs['Entity'].unique())))
     print('Unique Dereg Entities: {0:,}'.format(len(deregs[deregs['Year'] == 2019]['Entity'].unique())))
     print(deregs.pivot_table(values='Entity', columns='Year', aggfunc='count').to_markdown())
-For 2019, we can 'bin' the 68 retailers by customer size:
+For 2019 (most recent data), we can 'bin' the 68 retailers by customer size, I've chosen the bin size as follows:
 
 Total Customers: 6,451,123
 
@@ -169,7 +169,7 @@ The 'Traditional Utilities' group is of course more stable over time, but they h
     sums.loc['Total', :] = total
     print(sums.to_markdown(floatfmt=",.0f"))
     
-Anyway, we should get on to examining prices.
+So, back to the examination of prices.
 
 ###Okay, what's this 'average' price?###
 So we can copy the article data straight from the html (we actually did that previously--it's json data from the article html).  
@@ -187,9 +187,9 @@ We then exploit pandas pivot table functionality to get simple averages and medi
 
 So right away, we can see that:
 
-1. The article values **in bold** will have to be either weighted averages (as indicated by the quote above), or they are inconsistent with this data...we'll accept them as weighted averages for now, but we'll do that consistency check below.
-2. The price distribution by sales must be *significantly skewed* for retail providers. For the most recent year, the weighted average is 24% above the median supplier's price. By contrast, for 'Traditional Utilities' that difference is minimal.
-3. My 2018-2019 fixed price contract detailed above makes a lot more sense now...below the median, but closer to that than to the weighted average.
+1. The article values **in bold** (weighted averages) are significantly higher than either (1) the price of the average provider or (2) the price of the median provider.
+2. So it follows that the price distribution by sales must be *significantly skewed* for retail providers. For the most recent year, the weighted average is 24% above the median supplier's price. By contrast, for 'Traditional Utilities' that difference is minimal.
+3. My 2018-2019 fixed price contract detailed above makes a lot more sense now...below the median, but closer to that than to the article's weighted average.
 
 We definitely should do a visualization here...all 6 rows would be a bit busy, so we'll drop the 'simple mean' values.  The code is [block 1, here](https://github.com/dkfurrow/eia-retail-analysis/blob/master/eia_retail_analysis1.py).
 <img src="./files/pricey_power_revisited.png" alt="WSJ Data with simple mean and medians">
@@ -198,7 +198,7 @@ So this allows us to see the trends a little better.  So we see here that (1) th
 
 ### Confirm weighted average ###
 
-So, making use of pandas pivot_table and multi-index capabilities, we calculate a weighted average and compare...[block 2, here](https://github.com/dkfurrow/eia-retail-analysis/blob/master/eia_retail_analysis1.py)
+So, making use of pandas pivot_table and multi-index capabilities, we calculate a weighted average and compare to the article's values...[block 2, here](https://github.com/dkfurrow/eia-retail-analysis/blob/master/eia_retail_analysis1.py)
 
 |                                       |   2004 |   2005 |   2006 |   2007 |   2008 |   2009 |   2010 |   2011 |   2012 |   2013 |   2014 |   2015 |   2016 |   2017 |   2018 |   2019 |
 |:--------------------------------------|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|
@@ -207,7 +207,7 @@ So, making use of pandas pivot_table and multi-index capabilities, we calculate 
 | Calc Reg Median   |   8.63 |   9.47 |  10.10 |   9.86 |  10.95 |  10.06 |  10.01 |  10.10 |   9.93 |  10.39 |  10.93 |  10.67 |  10.47 |  10.88 |  10.74 |  10.63 |
 | **WSJ Reg 'Average'**    |   8.63 |   9.47 |  10.10 |   9.86 |  10.94 |  10.04 |   9.99 |  10.08 |   9.90 |  10.36 |  10.90 |  10.65 |  10.45 |  10.89 |  10.75 |  10.64 |
 
-So we basically tie on weighted average...certainly down to the &#162;0.1/kwh level (1 [mill](https://www.statista.com/statistics/195814/us-power-plant-operating-expenses-since-1998/)).
+And we basically tie on weighted average...certainly down to the &#162;0.1/kwh level (1 [mill](https://www.statista.com/statistics/195814/us-power-plant-operating-expenses-since-1998/)).
 
 ###Why are my results so different from 'Average' ?###
 
@@ -215,9 +215,9 @@ Well, we've definitely got a clue from the work we've accomplished thus far...th
 
 <img src="./files/2018_dereg_residential_prices_bar.png" alt="2018 Bar chart residential retail Texas">
 
-So, some of the companies with *the most customers* also charge *the highest prices.*  But there are 66 suppliers represented here, many with substantially better pricing than the *weighted average.* 
+So, the companies with *the most customers* also charge *the highest prices.*  But there are 66 suppliers represented here, the majority of whom have substantially better pricing than the *weighted average.* 
 
-By the way, it's fair to repeat: in an unregulated market, simple price may not be the only issue...a customer might value Green power, for example, and be willing to pay for it.  Companies offer 'stable bill' plans, for example, where the 12-month total absolute bill is constant--a form of insurance.  Finally, in cases like my EFL above, there's implicit financing--I lend money to my supplier in off-peak months, my supplier lends money to me in peak months.
+By the way, it's fair to repeat: in an unregulated market, simple price may not be the only issue...a customer might value Green power, for example, and be willing to pay for it.  Companies offer 'stable bill' plans, for example, where the 12-month total absolute bill is constant--a form of insurance.  Finally, consumer credit is bundled-- in cases like my EFL above, there's implicit financing--I lend money to my supplier in off-peak months, my supplier lends money to me in peak months.
 
 So, who are those large suppliers on the right side of the graph ([block 4, here](https://github.com/dkfurrow/eia-retail-analysis/blob/master/eia_retail_analysis1.py))?
 
@@ -229,10 +229,10 @@ So, who are those large suppliers on the right side of the graph ([block 4, here
 | Ambit Energy Holdings, LLC     |     7.99 |   410,791 |   441,364 |  5,523,891 |
 | Green Mountain Energy Company  |    12.44 |   355,016 |   530,030.20 |  4,259,048 |
 
-No surprise here...they are the retail arms of the legacy regulated retail providers for the Dallas and Houston--and they drive the price distribution skew. (Also note GMER--not necessarily comparable to the others because their product is green energy vs slice-of-system sales)
+No surprise here...they are the retail arms of the legacy regulated retail providers for the Dallas and Houston regions--and they drive the price distribution skew. (Also note Green Mountain--not necessarily comparable to the others because their product is green energy vs majority slice-of-system sales elsewhere)
 
-So to summarize, we started with an article in the business press, in which the authors used a weighted average price graph of a subsection of the electricity market to spin a large, headline-grabbing dollar cost attributed to 'deregulation'.  Here, I've demonstrated how to pull the data, and provided a more detailed analysis. I'm hopeful this analysis demonstrates the inappropriateness of a simplistic weighted-average calculation to summarize a market situation which is actually *significantly skewed* between (2018 numbers, [block 5](https://github.com/dkfurrow/eia-retail-analysis/blob/master/eia_retail_analysis1.py)) a large group of customers who remain with legacy incumbents at higher prices (2.7MM, &#162;12.8/kwn) and a similarly large group of customers who have chosen alternate suppliers at lower prices (3.6MM, &#162;9.9/kwh).  A more realistic view of the data on residential retail power in Texas demonstrates that customers who switch from legacy providers (especially in recent years) gain a clear benefit, *both* compared to those legacy providers *and* compared to the 'traditional utilities' used for comparison (with caveats to that comparison as noted above).  
+So to summarize, we started with an article in the business press, in which the authors used a *weighted average price* graph of a *subsection* of the electricity market to spin a large, headline-grabbing dollar cost attributed to 'deregulation'.  Here, I've demonstrated how to pull the data, and provided a more detailed analysis. I'm hopeful this analysis demonstrates the inappropriateness of a simplistic weighted-average calculation to summarize a market situation which is actually *significantly skewed* between (2018 numbers, [block 5](https://github.com/dkfurrow/eia-retail-analysis/blob/master/eia_retail_analysis1.py)) a large group of customers who remain with legacy incumbents at higher prices (2.7MM, &#162;12.8/kwn) and a similarly large group of customers who have chosen alternate suppliers at lower prices (3.6MM, &#162;9.9/kwh).  A more realistic view of the data on residential retail power in Texas demonstrates that customers who switch from legacy providers (especially in recent years) gain a clear benefit, *both* compared to those legacy providers *and* compared to the 'traditional utilities' (with caveats to that comparison as noted above).  In summary, those who choose to shop based on price have had the opportunity to do so and save money--the data clearly demonstrate that fact.  The data also demonstrate the costs for those who choose to remain with the legacy providers.  There may be important policy lessons here, positive or negative--but what's clear from this analysis is that summarizing this data using only a weighted average misrepresents a market reality which is both diverse and dynamic.
 
-Finally, the data and code are posted, so you have the opportunity to decide for yourself the appropriateness of the analysis, and create an extension or an alternative.  I'm hopeful this article and associated [github repo](https://github.com/dkfurrow/eia-retail-analysis) provides some useful example code concerning the use of python, pandas and matplotlib in the cleaning, processing, analysis and visualization of this data.
+Finally, the data and code are posted, so you have the opportunity to decide for yourself the appropriateness of this analysis, create an extension or an alternative.  I'm hopeful this article and associated [github repo](https://github.com/dkfurrow/eia-retail-analysis) provides some useful example code concerning the use of python, pandas and matplotlib in the cleaning, processing, analysis and visualization of this data.
 
 For the next article, we'll consider the other sectors of the Texas electric retail market, and do some more in-depth analysis of the residential retail market discussed here.

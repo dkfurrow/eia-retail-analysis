@@ -86,7 +86,7 @@ plt.rc('font', size=12)
 fig, ax = plt.subplots(figsize=(10, 6))
 ax.set_xlabel('Year')
 ax.set_ylabel('Price (\u00A2/kwh)')
-ax.set_title("""Pricey Power Revisited--WSJ "Average' Values vs Median Supplier Prices (\u00A2/kwh)""")
+ax.set_title("""Pricey Power Revisited--WSJ 'Average' Values vs Median Supplier Prices (\u00A2/kwh)""")
 ax.grid(True)
 plot_schemes = [{'index_slice': ('DeReg', 'residential', 'mean'), 'color': 'red', 'linestyle': '--', 'marker': 'o',
                  'label': """Median Retail Provider Price"""},
@@ -229,6 +229,15 @@ print("or in total customer-months...")
 print(dereg_customer_count.sum(axis=1) * 12)
 # %%
 # %%
+cust_values_year = aggregate_sums.loc[idx[['WAvgPrcDiff*Sales', 'Customers'], ['DeReg', 'DeRegMinusReg'], :], :].copy()
+scaled_prc_times_sales = cust_values_year.loc[idx['WAvgPrcDiff*Sales', :, :], :].values * 1.e9 / \
+                     cust_values_year.loc[idx['Customers', :, :], :].values
+new_index = pd.MultiIndex.from_product([['PrcDiffPerCustomer'], ['DeReg'], cust_subset],
+                                       names=cust_values_year.index.names)
+cust_values_year = cust_values_year.append(pd.DataFrame(data=scaled_prc_times_sales, index=new_index,
+                                                        columns=cust_values_year.columns))
+# sum of customer-months
+pd.DataFrame(cust_values_year.sum(axis=1)).loc[idx['Customers', 'DeReg', :], :] * 12
 # %%
 # %%
 # %%
