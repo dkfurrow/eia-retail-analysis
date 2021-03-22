@@ -196,55 +196,7 @@ print(res_tx_2018_dereg_pivot[res_tx_2018_dereg_pivot.index.isin(legacy)]['Custo
 print(res_tx_2018_dereg_pivot[~res_tx_2018_dereg_pivot.index.isin(legacy)]['Customers'].sum())
 print(res_tx_2018_dereg_pivot[res_tx_2018_dereg_pivot.index.isin(legacy)]['AvgPrc'].mean())
 print(res_tx_2018_dereg_pivot[~res_tx_2018_dereg_pivot.index.isin(legacy)]['AvgPrc'].mean())
-
-
-
 #%%
-prc_diff = aggregate_prices.loc[idx['DeReg', :, 'calcWtAvg'], :].values - \
-                     aggregate_prices.loc[idx['Reg', :, 'calcWtAvg'], :].values
-new_index = pd.MultiIndex.from_product([['DeRegMinusReg'], cust_subset, ['WtAvgUnitPrcDiff']],
-                                       names=aggregate_prices.index.names)
-prc_diff = pd.DataFrame(data=prc_diff, index=new_index, columns=aggregate_prices.columns)
-print("looking at *all* price differentials we see...")
-print(prc_diff)
-print("so the experience of the commercial and industrial markets appears to diverge from residential...")
-
-#%%
-print("applying that weighted average price difference to Sales, converting to $Bn, we find...")
-new_index = pd.MultiIndex.from_product([['WAvgPrcDiff*Sales'], ['DeRegMinusReg'], cust_subset],
-                                       names=aggregate_sums.index.names)
-wAvgPrcDiffXSales = prc_diff.loc[idx[:, :, :], :].values * \
-                    aggregate_sums.loc[idx['Sales', 'DeReg', :], :].values / 1.e8
-aggregate_sums = aggregate_sums.append(pd.DataFrame(data=wAvgPrcDiffXSales, index=new_index,
-                                                columns=aggregate_sums.columns))
-print("looking at *all* price differentials we see...")
-wAvgPrcDiffXSales2 = aggregate_sums.loc[idx['WAvgPrcDiff*Sales', :, :], :].copy()
-wAvgPrcDiffXSales2.loc[('Total', 'DeRegMinusReg', 'total'), :] = wAvgPrcDiffXSales2.sum(axis=0)
-print("Summing across customer categories we see...")
-print(wAvgPrcDiffXSales2)
-print("So benefits in commercial and industrial in recent years have often more than offset residential")
-print("Summing across years to check with article data, we see...")
-print(aggregate_sums.loc[idx['WAvgPrcDiff*Sales', :, :], :].sum(axis=1))
-print("So we tie to the '$28Bn' calculation in the article...\n"
-      "So regardless of the application, the math in the article appears to be correct")
-print("for context, total power revenues during the whole period were...")
-print(aggregate_sums.loc[idx['Rev', 'DeReg', :], :].sum(axis=1) / 1.e6)
-print("over the following customer base...")
-dereg_customer_count = aggregate_sums.loc[idx['Customers', 'DeReg', :], :]
-print(dereg_customer_count)
-print("or in total customer-months...")
-print(dereg_customer_count.sum(axis=1) * 12)
-# %%
-# %%
-cust_values_year = aggregate_sums.loc[idx[['WAvgPrcDiff*Sales', 'Customers'], ['DeReg', 'DeRegMinusReg'], :], :].copy()
-scaled_prc_times_sales = cust_values_year.loc[idx['WAvgPrcDiff*Sales', :, :], :].values * 1.e9 / \
-                     cust_values_year.loc[idx['Customers', :, :], :].values
-new_index = pd.MultiIndex.from_product([['PrcDiffPerCustomer'], ['DeReg'], cust_subset],
-                                       names=cust_values_year.index.names)
-cust_values_year = cust_values_year.append(pd.DataFrame(data=scaled_prc_times_sales, index=new_index,
-                                                        columns=cust_values_year.columns))
-# sum of customer-months
-pd.DataFrame(cust_values_year.sum(axis=1)).loc[idx['Customers', 'DeReg', :], :] * 12
 # %%
 # %%
 # %%
