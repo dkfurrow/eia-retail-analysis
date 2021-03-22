@@ -1,7 +1,14 @@
 #!/usr/bin/env python
 """Analyze EIA retail sales data
    Python Version: 3.83
+******
+Copyright (c) 2021, Dale Furrow
+All rights reserved.
+
+This source code is licensed under the BSD-style license found in the
+LICENSE file in the root directory of this source tree.
 """
+
 import glob
 from collections import OrderedDict
 from pathlib import Path
@@ -23,7 +30,8 @@ zipped_files = glob.glob(str(Path(DOWNLOAD_ROOT, 'f86*.zip')))
 print("Data will be extracted from the following files")
 pprint(zipped_files)
 #%%
-# We want to extract tables 6-10, which have meanings as follows
+# We want to extract
+# tables 6-10, which have meanings as follows
 file_data_class = dict([('table6', 'residential'), ('table7', 'commercial'), ('table8', 'industrial'),
                         ('table9', 'transportation'), ('table10', 'all')])
 # EIA switched the order of revenue and sales columns between 2007 and 2008, hence we have two units dictionaries
