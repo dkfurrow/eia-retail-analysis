@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 """Scratchpad for article narrative, tables and plots
+******
+Copyright (c) 2021, Dale Furrow
+All rights reserved.
+
+This source code is licensed under the BSD-style license found in the
+LICENSE file in the root directory of this source tree.
+
 """
 # %%
 # this section assumes the tx_records dataset in memory
