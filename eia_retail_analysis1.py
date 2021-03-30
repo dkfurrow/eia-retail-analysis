@@ -134,9 +134,9 @@ aggregate_prices = pd.concat([aggregate_prices, wt_avg_prc_df], axis=0)
 aggregate_prices.sort_index(axis=0, inplace=True)
 print("compare calculated weighted average with wsj article\n")
 md_str = aggregate_prices.loc[idx[:, 'residential', ['calcWtAvg', 'wsjWtAvg']], :].to_markdown(floatfmt=".2f")
-repl_dict = {"('DeReg', 'residential', 'calcWtAvg')": "Calc DeReg Median",
+repl_dict = {"('DeReg', 'residential', 'calcWtAvg')": "Calc DeReg WtMean",
              "('DeReg', 'residential', 'wsjWtAvg')": "WSJ DeReg 'Average'",
-             "('Reg', 'residential', 'calcWtAvg')": "Calc Reg Median",
+             "('Reg', 'residential', 'calcWtAvg')": "Calc Reg WtMean",
              "('Reg', 'residential', 'wsjWtAvg')": "WSJ Reg 'Average'"}
 for v1, v2 in repl_dict.items():
     md_str = md_str.replace(v1, v2)
@@ -148,22 +148,24 @@ res_tx_2018_dereg = tx_records[(tx_records['Year'] == 2018) & (tx_records['CustC
                                (tx_records['OwnershipType'] == 'DeReg')]  # 66 records of AvgPrc and Customers
 res_tx_2018_dereg[res_tx_2018_dereg.ValueType == 'AvgPrc']['Value'].describe(percentiles=[0.1, 0.25, 0.5, 0.75, 0.9])
 
-price_dict = OrderedDict(zip(res_tx_2018_dereg[res_tx_2018_dereg['ValueType'] == 'AvgPrc']['Value'],
-                      res_tx_2018_dereg[res_tx_2018_dereg['ValueType'] == 'Customers']['Value']))
+res_tx_2018_dereg_price_dict = OrderedDict(zip(res_tx_2018_dereg[res_tx_2018_dereg['ValueType'] == 'AvgPrc']['Value'],
+                                               res_tx_2018_dereg[res_tx_2018_dereg['ValueType'] == 'Customers']
+                                               ['Value']))
 
 def millions(x, pos):
     'The two args are the value and tick position'
     return "{0:.2f}".format(x*1e-6)
 
 formatter = FuncFormatter(millions)
-fig, ax = plt.subplots(figsize=(10, 5)) #10, 6
-_ = ax.bar(price_dict.keys(), height=price_dict.values(), align='center', width=0.3)
-ax.set_xlim([4., 15.])
-ax.yaxis.set_major_formatter(formatter)
-ax.set_axisbelow(True)
-ax.set_title("'Retail Provider' Residential Customer Prices, Texas, 2018")
-ax.set_xlabel('Price (\u00A2/kwh)')
-ax.set_ylabel('Number of Customers (Millions)')
+fig, axes = plt.subplots(figsize=(10, 10), nrows=2, ncols=1, sharex=True) #10, 6
+_ = axes[0].bar(res_tx_2018_dereg_price_dict.keys(), height=res_tx_2018_dereg_price_dict.values(),
+             align='center', width=0.3)
+axes[0].set_xlim([4., 15.])
+axes[0].yaxis.set_major_formatter(formatter)
+axes[0].set_axisbelow(True)
+axes[0].set_title("'Retail Provider' Residential Customer Prices, Texas, 2018")
+axes[0].set_xlabel('Price (\u00A2/kwh)')
+axes[0].set_ylabel('Number of Customers (Millions)')
 print("put in annotations")
 
 reg_res_tx_2018_wtAvg = aggregate_prices.loc[idx['Reg', 'residential', 'calcWtAvg'], 2018]
@@ -175,9 +177,28 @@ annotate_data = [(dereg_received_price_example, 'My Fixed Price\n Aug 2018', 1.2
                  (reg_res_tx_2018_wtAvg, "Wt Avg\n 'Trad Utilities'", 1.2e6),
                  (dereg_res_tx_2018_wtAvg, "Wt Avg\n 'Retail Provider'", 1.4e6)]
 for price, label, text_height in annotate_data:
-    ax.annotate(label, xy=(price, .8e6), xytext=(price, text_height),
-                arrowprops=dict(facecolor='black'), horizontalalignment='center',
-                verticalalignment='top', fontsize=10)
+    axes[0].annotate(label, xy=(price, .8e6), xytext=(price, text_height),
+                  arrowprops=dict(facecolor='black'), horizontalalignment='center',
+                  verticalalignment='top', fontsize=10)
+
+res_tx_2018_reg = tx_records[(tx_records['Year'] == 2018) & (tx_records['CustClass'] == 'residential') &
+                             (tx_records['OwnershipType'] == 'Reg') &
+                             (tx_records['Ownership'].isin(['Municipal', 'Cooperative', 'Investor Owned']))]
+res_tx_2018_reg_pivot = res_tx_2018_reg.pivot_table(values='Value', index='Entity', columns='ValueType')
+res_tx_2018_reg_pivot = res_tx_2018_reg_pivot[res_tx_2018_reg_pivot['AvgPrc'].notnull()]
+res_tx_2018_reg_price_dict = OrderedDict(zip(res_tx_2018_reg_pivot['AvgPrc'].values.tolist(),
+                                             res_tx_2018_reg_pivot['Customers'].values.tolist()))
+
+
+_ = axes[1].bar(res_tx_2018_reg_price_dict.keys(), height=res_tx_2018_reg_price_dict.values(),
+             align='center', width=0.3)
+axes[1].set_xlim([4., 15.])
+axes[1].yaxis.set_major_formatter(formatter)
+axes[1].set_axisbelow(True)
+axes[1].set_title("'Traditional Utility' Residential Customer Prices, Texas, 2018")
+axes[1].set_xlabel('Price (\u00A2/kwh)')
+axes[1].set_ylabel('Number of Customers (Millions)')
+
 plt.show()
 #%%
 # block 4 code
