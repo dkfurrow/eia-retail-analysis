@@ -134,9 +134,9 @@ aggregate_prices = pd.concat([aggregate_prices, wt_avg_prc_df], axis=0)
 aggregate_prices.sort_index(axis=0, inplace=True)
 print("compare calculated weighted average with wsj article\n")
 md_str = aggregate_prices.loc[idx[:, 'residential', ['calcWtAvg', 'wsjWtAvg']], :].to_markdown(floatfmt=".2f")
-repl_dict = {"('DeReg', 'residential', 'calcWtAvg')": "Calc DeReg Median",
+repl_dict = {"('DeReg', 'residential', 'calcWtAvg')": "Calc DeReg WtMean",
              "('DeReg', 'residential', 'wsjWtAvg')": "WSJ DeReg 'Average'",
-             "('Reg', 'residential', 'calcWtAvg')": "Calc Reg Median",
+             "('Reg', 'residential', 'calcWtAvg')": "Calc Reg WtMean",
              "('Reg', 'residential', 'wsjWtAvg')": "WSJ Reg 'Average'"}
 for v1, v2 in repl_dict.items():
     md_str = md_str.replace(v1, v2)
