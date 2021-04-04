@@ -62,10 +62,48 @@ wt_avg_prc_df = pd.DataFrame(data=aggregate_sums.loc[idx['Rev', :, :], :].values
 wt_avg_prc_df = wt_avg_prc_df.reorder_levels(order=[1, 2, 0], axis=0)
 aggregate_prices = pd.concat([aggregate_prices, wt_avg_prc_df], axis=0)
 aggregate_prices.sort_index(axis=0, inplace=True)
+print("aggregate prices...")
+print(aggregate_prices.head())
+print("aggregate sums...")
+print(aggregate_sums.head())
+#%%
+# create total sales visualization for retail providers vs traditional utililities
+# one line per customer class
+sales = aggregate_sums.loc[idx['Sales', :, :], :].droplevel(level=0, axis=0)
+sales = sales / 1.e6
+print(sales.head())
+fig, ax = plt.subplots(figsize=(10, 10)) #10, 6
+reg_segments = {'DeReg': 'red', 'Reg': 'blue'}
+cust_segments = ['residential', 'commercial', 'industrial']
+markers = {'commercial', "$c$", }
+for ownership_type in reg_segments:
+    for customer_class in cust_segments:
+        ax.plot(sales.columns.tolist(),
+                sales.loc[(ownership_type, customer_class), :].values,
+                color=reg_segments[ownership_type], linestyle='--', marker="${0}$".format(customer_class[0].capitalize()),
+                markersize=12, label="{0}_{1}".format(ownership_type, customer_class))
+ax.legend(loc='upper left')
+ax.set_xlabel('Year')
+ax.set_ylabel('Sales (TWH)')
+ax.set_title("""Total Sales, Retail Providers vs 'Traditional Utilities'""")
+ax.grid(True)
+ax.set_ylim([25., 100.])
+fig.tight_layout()
+fig.canvas.draw()
+plt.show()
+#%%
+# Examine maxes and mins in order to set ylim range on next graph
+axes_cust_segments = ['residential', 'commercial', 'industrial']
+for axes_cust_segment in axes_cust_segments:
+    print("maxes and mins by customer class, across years and provider types")
+    print(axes_cust_segment)
+    print(aggregate_prices.T.loc[:, idx[:, axes_cust_segment, ['WtAvg', 'median']]].min().min())
+    print(aggregate_prices.T.loc[:, idx[:, axes_cust_segment, ['WtAvg', 'median']]].max().max())
 #%%
 # block 1 code
 # Draw up three graphs, in accordance with customer segments
 axes_cust_segments = ['residential', 'commercial', 'industrial']
+ylims = [[8., 15.], [6., 13.], [3.5, 10.5]]  # Range is alway 7 cents, window reflects range of prices
 reg_segments = {'DeReg': 'red', 'Reg': 'blue'}
 analysis_segments = {'WtAvg': {'linestyle': '--', 'marker': 'o'}, 'median': {'linestyle': '--', 'marker': 'x'}}
 plt.rc('font', size=12)
@@ -76,7 +114,7 @@ for i, ax in enumerate(axes):
     ax.set_title("""{0} Weighted Avg Values vs Median Supplier Prices (\u00A2/kwh)"""
                  .format(axes_cust_segments[i].capitalize()))
     ax.grid(True)
-    ax.set_ylim([5., 15.])
+    ax.set_ylim(ylims[i])
 #%%
 # populate axes and draw
 for i, axes_cust_segment in enumerate(axes_cust_segments):
@@ -103,166 +141,74 @@ new_index = pd.MultiIndex.from_product([['WtAvg'], total_market_sums.index.get_l
 total_avg_prc_df = pd.DataFrame(data=total_market_sums.loc[idx['Rev', :], :].values * 100. /
                                   total_market_sums.loc[idx['Sales', :], :].values,
                              index=new_index, columns=aggregate_sums.columns)
-total_avg_prc_df
-# totoal_market_sums = aggregate_sums.groupby(level=['ValueType', 'OwnershipType']).sum().sum()
-# total_market_sums = aggregate_sums.swaplevel(axis=0, i=0, j=2)
-# total_market_sums = total_market_sums.sum(axis=0, level='CustClass')
-# total_market_sums
-# total_market_sums = aggregate_sums.sum(axis=0, level='CustClass')
-#%%
-sales = aggregate_sums.loc[idx['Sales', :, :], :].droplevel(level=0, axis=0)
-print(sales)
-totes = sales.sum(axis=0, level=['OwnershipType'])
-print(totes)
-for ownership_type in totes.index.tolist():
-    sales.loc[idx[ownership_type, :], :] = sales.loc[idx[ownership_type, :], :].div(totes.loc[ownership_type, :])
-print(sales)
-#%%
-fig, ax = plt.subplots(figsize=(10, 10)) #10, 6
-reg_segments = {'DeReg': 'red', 'Reg': 'blue'}
-cust_segments = ['residential', 'commercial', 'industrial']
-markers = {'commercial', "$c$", }
-for ownership_type in reg_segments:
-    for customer_class in cust_segments:
-        ax.plot(sales.columns.tolist(),
-                sales.loc[(ownership_type, customer_class), :].values,
-                color=reg_segments[ownership_type], linestyle='--', marker="${0}$".format(customer_class[0].capitalize()),
-                markersize=12, label="{0}_{1}".format(ownership_type, customer_class))
-ax.legend(loc='upper right')
+print(total_avg_prc_df)
+plt.rc('font', size=12)
+fig, ax = plt.subplots(figsize=(10, 6))
 ax.set_xlabel('Year')
-ax.set_ylabel('Percentage of Sales')
-ax.set_title("""Percentage of Sales, Retail Providers vs 'Traditional Utilities'""")
+ax.set_ylabel('Price (\u00A2/kwh)')
+ax.set_title("""Pricey Power Revisited--Weighted Average Prices\n Retail Provider vs 'Traditional Utility', ALL CUSTOMERS (\u00A2/kwh)""")
 ax.grid(True)
-ax.set_ylim([.2, .5])
-fig.tight_layout()
-fig.canvas.draw()
-plt.show()
-
-#%%
-
-plot_schemes = [{'index_slice': ('DeReg', 'residential', 'mean'), 'color': 'red', 'linestyle': '--', 'marker': 'o',
-                 'label': """Median Retail Provider Price"""},
-                {'index_slice': ('DeReg', 'residential', 'wsjWtAvg'), 'color': 'blue', 'linestyle': '--', 'marker': 'o',
-                 'label': """WSJ: Retail Providers 'Average'"""},
-                {'index_slice': ('Reg', 'residential', 'mean'), 'color': 'red', 'linestyle': ':', 'marker': 'x',
-                 'label': """Median 'Traditional Utility' Price"""},
-                {'index_slice': ('Reg', 'residential', 'wsjWtAvg'), 'color': 'blue', 'linestyle': ':', 'marker': 'x',
-                 'label': """WSJ: 'Traditional Utility' 'Average'"""}]
-# Use linestyle keyword to style our plot
+plot_schemes = [{'slice': ('WtAvg', 'DeReg'), 'plotColor': 'red'}, {'slice': ('WtAvg', 'Reg'), 'plotColor': 'blue'} ]
 for plot_scheme in plot_schemes:
-    ax.plot(aggregate_prices.columns.tolist(), aggregate_prices.loc[plot_scheme['index_slice'], :].values,
-            color=plot_scheme['color'], linestyle=plot_scheme['linestyle'], marker=plot_scheme['marker'],
-            label=plot_scheme['label'])
+    ax.plot(total_avg_prc_df.columns.tolist(),
+                             total_avg_prc_df.loc[plot_scheme['slice'], :].values,
+                             color=plot_scheme['plotColor'], linestyle='--', marker='o',
+                        label="{0}_{1}".format(plot_scheme['slice'][0], plot_scheme['slice'][1]))
+fig.canvas.draw()
+ax.legend(loc='upper right')
+plt.show()
 #%%
-# block 2 code
-# So now we calculate weighted average
-print("So, calculate weighted average price, compare to wsj data...")
-print("Note, we take only commercial, industrial and residential categories for comparison,\n"
-      " dropping 'all' and 'transport")
-aggregate_sums = tx_records.pivot_table(values='Value', index=['ValueType', 'OwnershipType', 'CustClass'],
+# 6
+# legacy = ['TXU Energy Retail Co, LLC', 'Reliant Energy Retail Services']
+# print(tx_records[(tx_records.Entity.str.find('TXU')!=-1) | (tx_records.Entity.str.find('Reliant')!=-1)])
+legacy_list = sorted(list(tx_records[(tx_records.Entity.str.find('TXU')!=-1) |
+                                     (tx_records.Entity.str.find('Reliant')!=-1)]['Entity'].unique()))
+def get_lecacy_type(row: pd.Series):
+    if row['OwnershipType'] == 'Reg':
+        return 'Reg'
+    else:
+        entity: str = row['Entity']
+        if entity in legacy_list:
+            return 'Legacy'
+        else:
+            return 'DeReg'
+legacy = tx_records.apply(func=get_lecacy_type, axis=1)
+tx_records.insert(loc=6, column='LegacyType', value=legacy.values)
+print(tx_records[tx_records['LegacyType']=='Legacy'].head())
+#%%
+# get unweighted averages from data set, combine with weighted averages
+cust_subset = ['commercial', 'industrial', 'residential']
+avg_price_data = tx_records[(tx_records['ValueType'] == 'AvgPrc') & (tx_records['CustClass'].isin(cust_subset))]
+pd.options.display.float_format = '{:,.2f}'.format
+aggregate_prices = avg_price_data.pivot_table(values='Value', index=['LegacyType', 'CustClass'],
+                              columns='Year', aggfunc={'Value': [np.mean, np.median]})
+aggregate_prices.columns.names = ['Aggregate', 'Year']  # name aggregates column, since there are two elements
+aggregate_prices = aggregate_prices.stack(level=0) # unstack to get aggregates in index
+aggregate_prices.sort_index(inplace=True)
+#%%
+# get aggregate sums of revenues, sales volumes and customers
+aggregate_sums = tx_records.pivot_table(values='Value', index=['ValueType', 'LegacyType', 'CustClass'],
                                         columns='Year', aggfunc='sum')
 
 aggregate_sums = aggregate_sums.loc[idx[:, :, cust_subset], :]
-
-new_index = pd.MultiIndex.from_product([['calcWtAvg'], aggregate_sums.index.get_level_values(1).unique(),
-                                        aggregate_sums.index.get_level_values(2).unique()],
-                                       names=['Aggregate', 'OwnershipType', 'CustClass'])
-wt_avg_prc_df = pd.DataFrame(data=aggregate_sums.loc[idx['Rev', :, :], :].values * 100. /
-                                  aggregate_sums.loc[idx['Sales', :, :], :].values,
-                             index=new_index, columns=aggregate_sums.columns)
-wt_avg_prc_df = wt_avg_prc_df.reorder_levels(order=[1, 2, 0], axis=0)
-aggregate_prices = pd.concat([aggregate_prices, wt_avg_prc_df], axis=0)
+aggregate_sums = aggregate_sums.loc[idx[['Customers', 'Rev', 'Sales'], :, :], :]
+# %%
+# add differences index to aggregate prices
+new_index = pd.MultiIndex.from_product([['legacySwitchSave'], aggregate_prices.index.get_level_values(1).unique(),
+                                        aggregate_prices.index.get_level_values(2).unique()],
+                                       names=['LegacyType', 'CustClass',  'Aggregate'])
+legacySwitchSavings = aggregate_prices.loc[idx['Legacy', :, :], :].values - aggregate_prices.loc[idx['DeReg', :, :], :].values
+legacySwitchSavings_df = pd.DataFrame(data= legacySwitchSavings, index=new_index, columns=aggregate_prices.columns)
+aggregate_prices = pd.concat([aggregate_prices, legacySwitchSavings_df], axis=0)
 aggregate_prices.sort_index(axis=0, inplace=True)
-print("compare calculated weighted average with wsj article\n")
-md_str = aggregate_prices.loc[idx[:, 'residential', ['calcWtAvg', 'wsjWtAvg']], :].to_markdown(floatfmt=".2f")
-repl_dict = {"('DeReg', 'residential', 'calcWtAvg')": "Calc DeReg WtMean",
-             "('DeReg', 'residential', 'wsjWtAvg')": "WSJ DeReg 'Average'",
-             "('Reg', 'residential', 'calcWtAvg')": "Calc Reg WtMean",
-             "('Reg', 'residential', 'wsjWtAvg')": "WSJ Reg 'Average'"}
-for v1, v2 in repl_dict.items():
-    md_str = md_str.replace(v1, v2)
-print(md_str)
-print("\nand they appear to tie closely")
-#%%
-# block 3 code
-res_tx_2018_dereg = tx_records[(tx_records['Year'] == 2018) & (tx_records['CustClass'] == 'residential') &
-                               (tx_records['OwnershipType'] == 'DeReg')]  # 66 records of AvgPrc and Customers
-res_tx_2018_dereg[res_tx_2018_dereg.ValueType == 'AvgPrc']['Value'].describe(percentiles=[0.1, 0.25, 0.5, 0.75, 0.9])
-
-res_tx_2018_dereg_price_dict = OrderedDict(zip(res_tx_2018_dereg[res_tx_2018_dereg['ValueType'] == 'AvgPrc']['Value'],
-                                               res_tx_2018_dereg[res_tx_2018_dereg['ValueType'] == 'Customers']
-                                               ['Value']))
-
-def millions(x, pos):
-    'The two args are the value and tick position'
-    return "{0:.2f}".format(x*1e-6)
-
-formatter = FuncFormatter(millions)
-fig, axes = plt.subplots(figsize=(10, 10), nrows=2, ncols=1, sharex=True) #10, 6
-_ = axes[0].bar(res_tx_2018_dereg_price_dict.keys(), height=res_tx_2018_dereg_price_dict.values(),
-             align='center', width=0.3)
-axes[0].set_xlim([4., 15.])
-axes[0].yaxis.set_major_formatter(formatter)
-axes[0].set_axisbelow(True)
-axes[0].set_title("'Retail Provider' Residential Customer Prices, Texas, 2018")
-axes[0].set_xlabel('Price (\u00A2/kwh)')
-axes[0].set_ylabel('Number of Customers (Millions)')
-print("put in annotations")
-
-reg_res_tx_2018_wtAvg = aggregate_prices.loc[idx['Reg', 'residential', 'calcWtAvg'], 2018]
-dereg_res_tx_2018_wtAvg = aggregate_prices.loc[idx['DeReg', 'residential', 'calcWtAvg'], 2018]
-dereg_res_tx_2018_median = aggregate_prices.loc[idx['DeReg', 'residential', 'median'], 2018]
-dereg_received_price_example = 9.1
-annotate_data = [(dereg_received_price_example, 'My Fixed Price\n Aug 2018', 1.2e6),
-                 (dereg_res_tx_2018_median, 'Median Supplier\n price', 1.4e6),
-                 (reg_res_tx_2018_wtAvg, "Wt Avg\n 'Trad Utilities'", 1.2e6),
-                 (dereg_res_tx_2018_wtAvg, "Wt Avg\n 'Retail Provider'", 1.4e6)]
-for price, label, text_height in annotate_data:
-    axes[0].annotate(label, xy=(price, .8e6), xytext=(price, text_height),
-                  arrowprops=dict(facecolor='black'), horizontalalignment='center',
-                  verticalalignment='top', fontsize=10)
-
-res_tx_2018_reg = tx_records[(tx_records['Year'] == 2018) & (tx_records['CustClass'] == 'residential') &
-                             (tx_records['OwnershipType'] == 'Reg') &
-                             (tx_records['Ownership'].isin(['Municipal', 'Cooperative', 'Investor Owned']))]
-res_tx_2018_reg_pivot = res_tx_2018_reg.pivot_table(values='Value', index='Entity', columns='ValueType')
-res_tx_2018_reg_pivot = res_tx_2018_reg_pivot[res_tx_2018_reg_pivot['AvgPrc'].notnull()]
-res_tx_2018_reg_price_dict = OrderedDict(zip(res_tx_2018_reg_pivot['AvgPrc'].values.tolist(),
-                                             res_tx_2018_reg_pivot['Customers'].values.tolist()))
-
-
-_ = axes[1].bar(res_tx_2018_reg_price_dict.keys(), height=res_tx_2018_reg_price_dict.values(),
-             align='center', width=0.3)
-axes[1].set_xlim([4., 15.])
-axes[1].yaxis.set_major_formatter(formatter)
-axes[1].set_axisbelow(True)
-axes[1].set_title("'Traditional Utility' Residential Customer Prices, Texas, 2018")
-axes[1].set_xlabel('Price (\u00A2/kwh)')
-axes[1].set_ylabel('Number of Customers (Millions)')
-
-plt.show()
-#%%
-# block 4 code
-print("Who were the top 5 suppliers by price?")
-md_str = res_tx_2018_dereg.pivot_table(values='Value', index='Entity', columns='ValueType')\
-    .sort_values(by='Customers', ascending=False).head().to_markdown(floatfmt=",.2f")
-md_str = md_str.replace('.00', '')
-print(md_str)
-
-#%%
-# block 5 code
-# legacy suppliers vs others
-legacy = ['TXU Energy Retail Co, LLC', 'Reliant Energy Retail Services']
-res_tx_2018_dereg_pivot = res_tx_2018_dereg.pivot_table(values='Value', index='Entity', columns='ValueType')
-print(res_tx_2018_dereg_pivot[res_tx_2018_dereg_pivot.index.isin(legacy)]['Customers'].sum())
-print(res_tx_2018_dereg_pivot[~res_tx_2018_dereg_pivot.index.isin(legacy)]['Customers'].sum())
-print(res_tx_2018_dereg_pivot[res_tx_2018_dereg_pivot.index.isin(legacy)]['AvgPrc'].mean())
-print(res_tx_2018_dereg_pivot[~res_tx_2018_dereg_pivot.index.isin(legacy)]['AvgPrc'].mean())
-#%%
 # %%
+# Insert graph of Legacy vs DeReg Volumes here
 # %%
+# Insert graph price savings here
 # %%
-# %%
+# Insert multi-bar of potential savings here
+# https://matplotlib.org/stable/gallery/lines_bars_and_markers/barchart.html
+
 # %%
 # %%
 # %%
