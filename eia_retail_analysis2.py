@@ -67,6 +67,22 @@ print(aggregate_prices.head())
 print("aggregate sums...")
 print(aggregate_sums.head())
 #%%
+new_index = pd.MultiIndex.from_product([['RegMinusDeReg'], aggregate_prices.index.get_level_values(1).unique(),
+                                        ['median']], names=['LegacyType', 'CustClass',  'Aggregate'])
+RegMinusDereg = aggregate_prices.loc[idx['Reg', :, 'median'], :].values - \
+                aggregate_prices.loc[idx['DeReg', :, 'median'], :].values
+RegMinusDereg_df = pd.DataFrame(data=RegMinusDereg, index=new_index, columns=aggregate_prices.columns)
+new_index = pd.MultiIndex.from_product([['DeRegSavings'], aggregate_prices.index.get_level_values(1).unique(),
+                                        ['median']], names=['LegacyType', 'CustClass',  'Aggregate'])
+DeRegSavings_df = pd.DataFrame(data=RegMinusDereg_df.values, index=new_index, columns=aggregate_prices.columns)
+print(DeRegSavings_df)
+for ind, series in DeRegSavings_df.iterrows():
+    multiplier = aggregate_sums.loc[idx['Sales', 'DeReg', ind[1]], :].values
+    DeRegSavings_df.loc[ind, :] = DeRegSavings_df.loc[ind, :] * multiplier / 1.e8
+print(aggregate_sums.loc[idx['Sales', 'DeReg', :], :])
+print(DeRegSavings_df)
+
+#%%
 # create total sales visualization for retail providers vs traditional utililities
 # one line per customer class
 sales = aggregate_sums.loc[idx['Sales', :, :], :].droplevel(level=0, axis=0)
@@ -201,7 +217,29 @@ legacySwitchSavings = aggregate_prices.loc[idx['Legacy', :, :], :].values - aggr
 legacySwitchSavings_df = pd.DataFrame(data= legacySwitchSavings, index=new_index, columns=aggregate_prices.columns)
 aggregate_prices = pd.concat([aggregate_prices, legacySwitchSavings_df], axis=0)
 aggregate_prices.sort_index(axis=0, inplace=True)
-# %%
+
+#%%
+new_index = pd.MultiIndex.from_product([['LegacySwitchBn'], aggregate_prices.index.get_level_values(1).unique(),
+                                        aggregate_prices.index.get_level_values(2).unique()],
+                                       names=['LegacyType', 'CustClass',  'Aggregate'])
+LegacySwitchBn_df = pd.DataFrame(data=aggregate_prices.loc[idx['legacySwitchSave', :, :], :].values, index=new_index,
+                                 columns=aggregate_prices.columns)
+print(LegacySwitchBn_df)
+for ind, series in LegacySwitchBn_df.iterrows():
+    multiplier = aggregate_sums.loc[idx['Sales', 'Legacy', ind[1]], :].values
+    LegacySwitchBn_df.loc[ind, :] = LegacySwitchBn_df.loc[ind, :] * multiplier / 1.e8
+print(aggregate_sums.loc[idx['Sales', 'Legacy', :], :])
+print(LegacySwitchBn_df)
+#%%
+new_index = pd.MultiIndex.from_product([['LegacyPct'], ['Legacy'], aggregate_sums.index.get_level_values(2).unique()],
+                                       names="ValueType LegacyType CustClass".split())
+pct_legacy = aggregate_sums.loc[idx['Sales', 'Legacy', :], :].values / \
+             (aggregate_sums.loc[idx['Sales', 'Legacy', :], :].values +
+              aggregate_sums.loc[idx['Sales', 'DeReg', :], :].values)
+pct_legacy_df = pd.DataFrame(data = pct_legacy, index=new_index, columns=aggregate_sums.columns)
+print(pct_legacy_df)
+
+#%%
 # Insert graph of Legacy vs DeReg Volumes here
 # %%
 # Insert graph price savings here
