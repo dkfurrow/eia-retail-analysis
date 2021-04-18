@@ -67,62 +67,18 @@ print(aggregate_prices.head())
 print("aggregate sums...")
 print(aggregate_sums.head())
 #%%
-new_index = pd.MultiIndex.from_product([['RegMinusDeReg'], aggregate_prices.index.get_level_values(1).unique(),
-                                        ['median']], names=['LegacyType', 'CustClass',  'Aggregate'])
-RegMinusDereg = aggregate_prices.loc[idx['Reg', :, 'median'], :].values - \
-                aggregate_prices.loc[idx['DeReg', :, 'median'], :].values
-RegMinusDereg_df = pd.DataFrame(data=RegMinusDereg, index=new_index, columns=aggregate_prices.columns)
-new_index = pd.MultiIndex.from_product([['DeRegSavings'], aggregate_prices.index.get_level_values(1).unique(),
-                                        ['sumProduct']], names=['LegacyType', 'CustClass',  'Aggregate'])
-DeRegSavings_df = pd.DataFrame(data=RegMinusDereg_df.values, index=new_index, columns=aggregate_prices.columns)
-print(DeRegSavings_df)
-for ind, series in DeRegSavings_df.iterrows():
-    multiplier = aggregate_sums.loc[idx['Sales', 'DeReg', ind[1]], :].values
-    DeRegSavings_df.loc[ind, :] = DeRegSavings_df.loc[ind, :] * multiplier / 1.e8
-print(aggregate_sums.loc[idx['Sales', 'DeReg', :], :])
-print(DeRegSavings_df)
-
-out_df = pd.DataFrame(DeRegSavings_df.sum(axis=1))
-out_df.index = out_df.index.droplevel([0,2])
-out_df.columns = ['All']
-out_df.loc['Total'] = out_df.sum(axis=0)
-print(out_df.to_markdown(floatfmt=".2f"))
-#%%
-
-labels = [str(x) for x in DeRegSavings_df.columns]
-x = np.arange(len(labels))  # the label locations
-width = 0.25   # the width of the bars
-# cust_segments = {'residential':-width/3, 'commercial': 0., 'industrial':width/2.}
-cust_segments = ['commercial', 'industrial', 'residential']
-fig, ax = plt.subplots(figsize=(10, 6))
-rects = []
-rects1 = ax.bar(x - width, DeRegSavings_df.loc[idx[:, cust_segments[0], :], :].values.flatten(), width, label=cust_segments[0])
-rects2 = ax.bar(x, DeRegSavings_df.loc[idx[:, cust_segments[1], :], :].values.flatten(), width, label=cust_segments[1])
-rects3 = ax.bar(x + width, DeRegSavings_df.loc[idx[:, cust_segments[2], :], :].values.flatten(), width, label=cust_segments[2])
-# for i, year in enumerate(DeRegSavings_df.columns.to_list()):
-#     for j, cust_segment in enumerate(cust_segments.keys()):
-#         rects.append(ax.bar(i + cust_segments[cust_segment], DeRegSavings_df.loc[idx[:, cust_segment, :], year],
-#                             width))
-
-# Add some text for labels, title and custom x-axis tick labels, etc.
-ax.set_ylabel("""Median Provider Unit Price Difference X Sales Volumes ($Bn)""")
-ax.set_title("Median Unit Price Difference X Sales Volumes\n['Traditional Utility' minus 'Retail Provider'")
-ax.set_xticks(x)
-ax.grid(True)
-ax.set_yticks(ticks=np.arange(-2., 2.5, 0.25), minor=True)
-ax.set_xticklabels(labels)
-ax.legend()
-# for rect in rects:
-#     ax.bar_label(rect, padding=3)
-#
-# ax.bar_label(rects1, padding=3)
-# ax.bar_label(rects2, padding=3)
-
-fig.tight_layout()
-
-plt.show()
-
-
+total_market_sums = aggregate_sums.sum(axis=0, level=['ValueType', 'OwnershipType'])
+new_index = pd.MultiIndex.from_product([['WtAvg'], total_market_sums.index.get_level_values(1).unique()],
+                                       names=['Aggregate', 'OwnershipType'])
+total_avg_prc_df = pd.DataFrame(data=total_market_sums.loc[idx['Rev', :], :].values * 100. /
+                                  total_market_sums.loc[idx['Sales', :], :].values,
+                             index=new_index, columns=aggregate_sums.columns)
+new_index = pd.MultiIndex.from_product([['DeReg', 'Reg'], ['all'], ['WtAvg']],
+                                       names=['OwnershipType', 'CustClass', 'Aggregate'])
+total_avg_prc_df = pd.DataFrame(data = total_avg_prc_df.values, index=new_index, columns=aggregate_prices.columns)
+aggregate_prices = pd.concat([aggregate_prices, total_avg_prc_df], axis=0)
+aggregate_prices.sort_index(axis=0, inplace=True)
+print(aggregate_prices)
 
 #%%
 # create total sales visualization for retail providers vs traditional utililities
@@ -149,6 +105,8 @@ ax.set_ylim([25., 100.])
 fig.tight_layout()
 fig.canvas.draw()
 plt.show()
+
+
 #%%
 # Examine maxes and mins in order to set ylim range on next graph
 axes_cust_segments = ['residential', 'commercial', 'industrial']
@@ -192,29 +150,90 @@ for i, axes_cust_segment in enumerate(axes_cust_segments):
 fig.tight_layout()
 fig.canvas.draw()
 plt.show()
-#%%
-total_market_sums = aggregate_sums.sum(axis=0, level=['ValueType', 'OwnershipType'])
-new_index = pd.MultiIndex.from_product([['WtAvg'], total_market_sums.index.get_level_values(1).unique()],
-                                       names=['Aggregate', 'OwnershipType'])
-total_avg_prc_df = pd.DataFrame(data=total_market_sums.loc[idx['Rev', :], :].values * 100. /
-                                  total_market_sums.loc[idx['Sales', :], :].values,
-                             index=new_index, columns=aggregate_sums.columns)
-print(total_avg_prc_df)
+
+# %%
+# Plot weighted average price difference for residential customers vs all customers
 plt.rc('font', size=12)
 fig, ax = plt.subplots(figsize=(10, 6))
 ax.set_xlabel('Year')
 ax.set_ylabel('Price (\u00A2/kwh)')
-ax.set_title("""Pricey Power Revisited--Weighted Average Prices\n Retail Provider vs 'Traditional Utility', ALL CUSTOMERS (\u00A2/kwh)""")
 ax.grid(True)
-plot_schemes = [{'slice': ('WtAvg', 'DeReg'), 'plotColor': 'red'}, {'slice': ('WtAvg', 'Reg'), 'plotColor': 'blue'} ]
+ax.set_title("""Pricey Power Revisited--Weighted Average Prices\n Retail Provider vs 'Traditional Utility
+Residential Customers vs  ALL Customers (\u00A2/kwh)""")
+# ax.set_ylim(0., 15.)
+plot_schemes = [{'index_slice': ('DeReg', 'residential', 'WtAvg'), 'color': 'red', 'linestyle': '--', 'marker': 'x',
+                 'label': """Retail Providers Residential"""},
+                {'index_slice': ('Reg', 'residential', 'WtAvg'), 'color': 'red', 'linestyle': '--', 'marker': 'o',
+                 'label': """Traditional Utility Residential"""},
+                {'index_slice': ('DeReg', 'all', 'WtAvg'), 'color': 'blue', 'linestyle': ':', 'marker': 'x',
+                 'label': """Retail Providers All"""},
+                {'index_slice': ('Reg', 'all', 'WtAvg'), 'color': 'blue', 'linestyle': ':', 'marker': 'o',
+                 'label': """Traditional Utility All"""}
+                ]
+# Use linestyle keyword to style our plot
 for plot_scheme in plot_schemes:
-    ax.plot(total_avg_prc_df.columns.tolist(),
-                             total_avg_prc_df.loc[plot_scheme['slice'], :].values,
-                             color=plot_scheme['plotColor'], linestyle='--', marker='o',
-                        label="{0}_{1}".format(plot_scheme['slice'][0], plot_scheme['slice'][1]))
+    ax.plot(aggregate_prices.columns.tolist(), aggregate_prices.loc[plot_scheme['index_slice'], :].values,
+            color=plot_scheme['color'], linestyle=plot_scheme['linestyle'], marker=plot_scheme['marker'],
+            label=plot_scheme['label'])
+fig.tight_layout()
 fig.canvas.draw()
 ax.legend(loc='upper right')
 plt.show()
+
+#%%
+# aggregates deregulated volumes * difference of median provider prices
+segments = ['commercial', 'industrial', 'residential']
+new_index = pd.MultiIndex.from_product([['RegMinusDeReg'], segments,
+                                        ['median']], names=['LegacyType', 'CustClass',  'Aggregate'])
+RegMinusDereg = aggregate_prices.loc[idx['Reg', :, 'median'], :].values - \
+                aggregate_prices.loc[idx['DeReg', :, 'median'], :].values
+RegMinusDereg_unit_df = pd.DataFrame(data=RegMinusDereg, index=new_index, columns=aggregate_prices.columns)
+new_index = pd.MultiIndex.from_product([['DeRegSavings'], segments, ['sumProduct']],
+                                       names=['LegacyType', 'CustClass',  'Aggregate'])
+DeRegSavings_df = pd.DataFrame(data=None, index=new_index, columns=aggregate_prices.columns)
+print("unit prices, reg minus dereg, by customer class")
+print(RegMinusDereg_unit_df)
+print("unit prices x volumes, reg minus dereg, by customer class")
+print("Deregulated Sales Volumes by customer class")
+pd.options.display.float_format = '{:,.0f}'.format
+print(aggregate_sums.loc[idx['Sales', 'DeReg', :], :])
+for ind, series in DeRegSavings_df.iterrows():
+    volumes = aggregate_sums.loc[idx['Sales', 'DeReg', ind[1]], :].values
+    prices = RegMinusDereg_unit_df.loc[idx['RegMinusDeReg', ind[1], :], :].values
+    DeRegSavings_df.loc[ind, :] = prices * volumes / 1.e8
+pd.options.display.float_format = '{:,.2f}'.format
+print(DeRegSavings_df)
+
+#%%
+# Bar graph of commercial, residential, industrial median price difference * sales volumes
+labels = [str(x) for x in DeRegSavings_df.columns]
+x = np.arange(len(labels))  # the label locations
+width = 0.25   # the width of the bars
+# cust_segments = {'residential':-width/3, 'commercial': 0., 'industrial':width/2.}
+cust_segments = ['commercial', 'industrial', 'residential']
+fig, ax = plt.subplots(figsize=(10, 6))
+rects = []
+rects1 = ax.bar(x - width, DeRegSavings_df.loc[idx[:, cust_segments[0], :], :].values.flatten(), width, label=cust_segments[0])
+rects2 = ax.bar(x, DeRegSavings_df.loc[idx[:, cust_segments[1], :], :].values.flatten(), width, label=cust_segments[1])
+rects3 = ax.bar(x + width, DeRegSavings_df.loc[idx[:, cust_segments[2], :], :].values.flatten(), width, label=cust_segments[2])
+
+# Add some text for labels, title and custom x-axis tick labels, etc.
+ax.set_ylabel("""Median Provider Unit Price Difference X Sales Volumes ($Bn)""")
+ax.set_title("Median Unit Price Difference X Sales Volumes\n['Traditional Utility' minus 'Retail Provider']")
+ax.set_xticks(x)
+ax.grid(True)
+ax.set_yticks(ticks=np.arange(-2., 2.5, 0.25), minor=True)
+ax.set_xticklabels(labels)
+ax.legend()
+fig.tight_layout()
+plt.show()
+#%%
+# sums from previous graph
+out_df = pd.DataFrame(DeRegSavings_df.sum(axis=1))
+out_df.index = out_df.index.droplevel([0,2])
+out_df.columns = ['All']
+out_df.loc['Total'] = out_df.sum(axis=0)
+print(out_df.to_markdown(floatfmt=".2f"))
 #%%
 # 6
 # legacy = ['TXU Energy Retail Co, LLC', 'Reliant Energy Retail Services']
@@ -248,7 +267,6 @@ aggregate_prices.sort_index(inplace=True)
 # get aggregate sums of revenues, sales volumes and customers
 aggregate_sums = tx_records.pivot_table(values='Value', index=['ValueType', 'LegacyType', 'CustClass'],
                                         columns='Year', aggfunc='sum')
-
 aggregate_sums = aggregate_sums.loc[idx[:, :, cust_subset], :]
 aggregate_sums = aggregate_sums.loc[idx[['Customers', 'Rev', 'Sales'], :, :], :]
 # %%
