@@ -324,33 +324,37 @@ for legacy_type in legacy_types:
 
 print(aggregate_prices.loc[(['DeReg', 'Legacy'], 'residential', 'median'), :])
 #%%
-cust_segments = ['residential', 'commercial', 'industrial']
-dereg_prices = tx_records[(tx_records.LegacyType=='DeReg') & (tx_records.ValueType == 'AvgPrc') &
-                          (tx_records.CustClass==cust_segments[0])].pivot_table(index='Entity', columns='Year',
-                                                                                values='Value', aggfunc='last')
-#%%
-dereg_prices_processed = [dereg_prices[x][dereg_prices[x].notnull()].tolist() for x in dereg_prices.columns.tolist()]
+
 def set_box_color(bp, color):
     plt.setp(bp['boxes'], color=color)
     plt.setp(bp['whiskers'], color=color)
     plt.setp(bp['caps'], color=color)
     plt.setp(bp['medians'], color=color)
 
-fig, ax = plt.subplots(figsize=(10, 6))
-bpl = ax.boxplot(dereg_prices_processed, positions=np.array(range(len(dereg_prices.columns))), sym=None, widths=0.6)
-set_box_color(bpl, 'red')  # colors are from http://colorbrewer2.org/
-ax.plot([], c='red', label='non-legacy providers')
-ax.plot(list(range(len(aggregate_prices.columns))), aggregate_prices.loc[('Legacy', cust_segments[0], 'median'), :].tolist(),
+
+cust_segments = ['residential', 'commercial', 'industrial']
+fig, axes = plt.subplots(figsize=(10, 15), nrows=3, ncols=1, sharex=True) #10, 6
+for i, ax in enumerate(axes):
+    dereg_prices = tx_records[(tx_records.LegacyType=='DeReg') & (tx_records.ValueType == 'AvgPrc') &
+                          (tx_records.CustClass==cust_segments[i])].pivot_table(index='Entity', columns='Year',
+                                                                                values='Value', aggfunc='last')
+    dereg_prices_processed = [dereg_prices[x][dereg_prices[x].notnull()].tolist() for x in dereg_prices.columns.tolist()]
+    bpl = ax.boxplot(dereg_prices_processed, positions=np.array(range(len(dereg_prices.columns))), sym=None, widths=0.6)
+    set_box_color(bpl, 'red')  # colors are from http://colorbrewer2.org/
+    axes[i].plot([], c='red', label='non-legacy providers')
+    axes[i].plot(list(range(len(aggregate_prices.columns))), aggregate_prices.loc[('Legacy', cust_segments[i], 'median'), :].tolist(),
             color='blue', linestyle='--', marker='x',
-            label="legacy provider {0}".format(cust_segments[0]))
-ax.legend()
-ax.set_xticks(range(0, len(dereg_prices.columns), 1))
-ax.set_xticklabels([str(x) for x in dereg_prices.columns]) # labels
-ax.set_ylabel('Price (\u00A2/kwh)')
-ax.set_title("""Box Plot Comparison Non-Legacy vs Legacy Providers: {0}""".format(cust_segments[0]))
-ax.grid(True)
-# ax.set_xlim(-2, len(ticks) * 2)
-# ax.set_ylim(0, 8)
+            label="legacy provider {0}".format(cust_segments[i]))
+    axes[i].legend(loc='upper right')
+    axes[i].set_xticks(range(0, len(dereg_prices.columns), 1))
+    axes[i].set_ylim([0., 20.])
+    axes[i].set_xticklabels([str(x) for x in dereg_prices.columns]) # labels
+    axes[i].set_ylabel('Price (\u00A2/kwh)')
+    axes[i].set_xlabel('Year')
+    axes[i].set_title("""Box Plot Comparison Non-Legacy vs Legacy Providers: {0}""".format(cust_segments[i]))
+    axes[i].grid(True)
+    # ax.set_xlim(-2, len(ticks) * 2)
+    # ax.set_ylim(0, 8)
 fig.canvas.draw()
 fig.tight_layout()
 plt.show()
