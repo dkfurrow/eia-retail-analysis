@@ -161,13 +161,13 @@ ax.grid(True)
 ax.set_title("""Pricey Power Revisited--Weighted Average Prices\n Retail Provider vs 'Traditional Utility
 Residential Customers vs  ALL Customers (\u00A2/kwh)""")
 # ax.set_ylim(0., 15.)
-plot_schemes = [{'index_slice': ('DeReg', 'residential', 'WtAvg'), 'color': 'red', 'linestyle': '--', 'marker': 'x',
+plot_schemes = [{'index_slice': ('DeReg', 'residential', 'WtAvg'), 'color': 'blue', 'linestyle': 'solid', 'marker': 'x',
                  'label': """Retail Providers Residential"""},
-                {'index_slice': ('Reg', 'residential', 'WtAvg'), 'color': 'red', 'linestyle': '--', 'marker': 'o',
+                {'index_slice': ('Reg', 'residential', 'WtAvg'), 'color': 'blue', 'linestyle': 'solid', 'marker': 'o',
                  'label': """Traditional Utility Residential"""},
-                {'index_slice': ('DeReg', 'all', 'WtAvg'), 'color': 'blue', 'linestyle': ':', 'marker': 'x',
+                {'index_slice': ('DeReg', 'all', 'WtAvg'), 'color': 'red', 'linestyle': ':', 'marker': 'x',
                  'label': """Retail Providers All"""},
-                {'index_slice': ('Reg', 'all', 'WtAvg'), 'color': 'blue', 'linestyle': ':', 'marker': 'o',
+                {'index_slice': ('Reg', 'all', 'WtAvg'), 'color': 'red', 'linestyle': ':', 'marker': 'o',
                  'label': """Traditional Utility All"""}
                 ]
 # Use linestyle keyword to style our plot
@@ -235,11 +235,18 @@ out_df.columns = ['All']
 out_df.loc['Total'] = out_df.sum(axis=0)
 print(out_df.to_markdown(floatfmt=".2f"))
 #%%
-# 6
-# legacy = ['TXU Energy Retail Co, LLC', 'Reliant Energy Retail Services']
-# print(tx_records[(tx_records.Entity.str.find('TXU')!=-1) | (tx_records.Entity.str.find('Reliant')!=-1)])
+# Analyze legacy customers...first of all, who are the 'legacy' providers?
 legacy_list = sorted(list(tx_records[(tx_records.Entity.str.find('TXU')!=-1) |
                                      (tx_records.Entity.str.find('Reliant')!=-1)]['Entity'].unique()))
+print("To start, assume legacy providers are any of the following...")
+print(pd.DataFrame(data=legacy_list, columns=["Name"]).to_markdown(index=False))
+customer_counts = tx_records[(tx_records.Entity.isin(legacy_list)) & (tx_records.ValueType == 'Customers')]\
+    .pivot_table(index='Entity', columns='Year', aggfunc='sum')
+print("remove the following specialized subsidiaries")
+remove_list = ['Reliant Energy Elec Solutions', 'TXU ET Services Co', 'TXU SESCO Energy Serv Co',
+               'TXU SESCO Energy Services Co']
+legacy_list = sorted(list(set(legacy_list) - set(remove_list)))
+print("which leaves us with...")
 print(pd.DataFrame(data=legacy_list, columns=["Name"]).to_markdown(index=False))
 def get_lecacy_type(row: pd.Series):
     if row['OwnershipType'] == 'Reg':
@@ -252,9 +259,10 @@ def get_lecacy_type(row: pd.Series):
             return 'DeReg'
 legacy = tx_records.apply(func=get_lecacy_type, axis=1)
 tx_records.insert(loc=6, column='LegacyType', value=legacy.values)
+print("add LegacyType to main data set...")
 print(tx_records[tx_records['LegacyType']=='Legacy'].head())
 #%%
-# get unweighted averages from data set, combine with weighted averages
+# remake aggregate prices dataframe with LegacyType, Mean and Median Provider Price
 cust_subset = ['commercial', 'industrial', 'residential']
 avg_price_data = tx_records[(tx_records['ValueType'] == 'AvgPrc') & (tx_records['CustClass'].isin(cust_subset))]
 pd.options.display.float_format = '{:,.2f}'.format
@@ -263,14 +271,19 @@ aggregate_prices = avg_price_data.pivot_table(values='Value', index=['LegacyType
 aggregate_prices.columns.names = ['Aggregate', 'Year']  # name aggregates column, since there are two elements
 aggregate_prices = aggregate_prices.stack(level=0) # unstack to get aggregates in index
 aggregate_prices.sort_index(inplace=True)
+print("Aggregate prices by Legacy Type...")
+print(aggregate_prices)
 #%%
 # get aggregate sums of revenues, sales volumes and customers
 aggregate_sums = tx_records.pivot_table(values='Value', index=['ValueType', 'LegacyType', 'CustClass'],
                                         columns='Year', aggfunc='sum')
 aggregate_sums = aggregate_sums.loc[idx[:, :, cust_subset], :]
 aggregate_sums = aggregate_sums.loc[idx[['Customers', 'Rev', 'Sales'], :, :], :]
+print("Aggregate sums by Legacy Type...")
+pd.options.display.float_format = '{:,.0f}'.format
+print(aggregate_sums)
 # %%
-# add differences index to aggregate prices
+# add differences index 'legacySwitchSave' to aggregate prices
 new_index = pd.MultiIndex.from_product([['legacySwitchSave'], aggregate_prices.index.get_level_values(1).unique(),
                                         aggregate_prices.index.get_level_values(2).unique()],
                                        names=['LegacyType', 'CustClass',  'Aggregate'])
@@ -278,6 +291,69 @@ legacySwitchSavings = aggregate_prices.loc[idx['Legacy', :, :], :].values - aggr
 legacySwitchSavings_df = pd.DataFrame(data= legacySwitchSavings, index=new_index, columns=aggregate_prices.columns)
 aggregate_prices = pd.concat([aggregate_prices, legacySwitchSavings_df], axis=0)
 aggregate_prices.sort_index(axis=0, inplace=True)
+print("Calculating difference in aggregate price measures between legacy and other providers")
+pd.options.display.float_format = '{:,.2f}'.format
+print(aggregate_prices)
+#%%
+# create visualization for median price difference between legacy providers and others
+# one line per customer class
+fig, ax = plt.subplots(figsize=(10, 6)) #10, 6
+cust_segments = ['residential', 'commercial', 'industrial']
+for customer_class in cust_segments:
+    ax.plot(aggregate_prices.columns.tolist(),
+            aggregate_prices.loc[('legacySwitchSave', customer_class, 'median'), :].values,
+            color='blue', linestyle='--', marker="${0}$".format(customer_class[0].capitalize()),
+            markersize=12, label="median_price_{0}".format(customer_class))
+ax.legend(loc='upper left')
+ax.set_xlabel('Year')
+ax.set_ylabel('Price (\u00A2/kwh)')
+ax.set_title("""Median Unit Price Difference "Legacy Providers vs Others """)
+ax.grid(True)
+# ax.set_ylim([25., 100.])
+fig.tight_layout()
+fig.canvas.draw()
+plt.show()
+#%%
+# analyze 2008...
+legacy_types = ['Legacy', 'DeReg']
+study_prices = tx_records[(tx_records.Year == 2008) & (tx_records.LegacyType.isin(legacy_types)) &
+                          (tx_records.ValueType == 'AvgPrc') & (tx_records.CustClass=='residential')]
+for legacy_type in legacy_types:
+    print("describe {0}".format(legacy_type))
+    print(study_prices[study_prices.LegacyType==legacy_type].Value.describe())
+
+print(aggregate_prices.loc[(['DeReg', 'Legacy'], 'residential', 'median'), :])
+#%%
+cust_segments = ['residential', 'commercial', 'industrial']
+dereg_prices = tx_records[(tx_records.LegacyType=='DeReg') & (tx_records.ValueType == 'AvgPrc') &
+                          (tx_records.CustClass==cust_segments[0])].pivot_table(index='Entity', columns='Year',
+                                                                                values='Value', aggfunc='last')
+#%%
+dereg_prices_processed = [dereg_prices[x][dereg_prices[x].notnull()].tolist() for x in dereg_prices.columns.tolist()]
+def set_box_color(bp, color):
+    plt.setp(bp['boxes'], color=color)
+    plt.setp(bp['whiskers'], color=color)
+    plt.setp(bp['caps'], color=color)
+    plt.setp(bp['medians'], color=color)
+
+fig, ax = plt.subplots(figsize=(10, 6))
+bpl = ax.boxplot(dereg_prices_processed, positions=np.array(range(len(dereg_prices.columns))), sym=None, widths=0.6)
+set_box_color(bpl, 'red')  # colors are from http://colorbrewer2.org/
+ax.plot([], c='red', label='non-legacy providers')
+ax.plot(list(range(len(aggregate_prices.columns))), aggregate_prices.loc[('Legacy', cust_segments[0], 'median'), :].tolist(),
+            color='blue', linestyle='--', marker='x',
+            label="legacy provider {0}".format(cust_segments[0]))
+ax.legend()
+ax.set_xticks(range(0, len(dereg_prices.columns), 1))
+ax.set_xticklabels([str(x) for x in dereg_prices.columns]) # labels
+ax.set_ylabel('Price (\u00A2/kwh)')
+ax.set_title("""Box Plot Comparison Non-Legacy vs Legacy Providers: {0}""".format(cust_segments[0]))
+ax.grid(True)
+# ax.set_xlim(-2, len(ticks) * 2)
+# ax.set_ylim(0, 8)
+fig.canvas.draw()
+fig.tight_layout()
+plt.show()
 
 #%%
 new_index = pd.MultiIndex.from_product([['LegacySwitchBn'], aggregate_prices.index.get_level_values(1).unique(),
