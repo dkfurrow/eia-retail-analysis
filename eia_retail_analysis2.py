@@ -337,14 +337,23 @@ fig, axes = plt.subplots(figsize=(10, 15), nrows=3, ncols=1, sharex=True) #10, 6
 for i, ax in enumerate(axes):
     dereg_prices = tx_records[(tx_records.LegacyType=='DeReg') & (tx_records.ValueType == 'AvgPrc') &
                           (tx_records.CustClass==cust_segments[i])].pivot_table(index='Entity', columns='Year',
-                                                                                values='Value', aggfunc='last')
+                                                                                values='Value', aggfunc='mean')
+    dereg_count = tx_records[(tx_records.LegacyType == 'DeReg') & (tx_records.ValueType == 'AvgPrc') &
+                             (tx_records.CustClass == cust_segments[i])]\
+        .pivot_table(index='Entity', columns='Year', values='Value', aggfunc='count').sum(axis=0).to_list()
     dereg_prices_processed = [dereg_prices[x][dereg_prices[x].notnull()].tolist() for x in dereg_prices.columns.tolist()]
     bpl = ax.boxplot(dereg_prices_processed, positions=np.array(range(len(dereg_prices.columns))), sym=None, widths=0.6)
     set_box_color(bpl, 'red')  # colors are from http://colorbrewer2.org/
-    axes[i].plot([], c='red', label='non-legacy providers')
+    axes[i].plot([], c='red', label='non-legacy provider price')
     axes[i].plot(list(range(len(aggregate_prices.columns))), aggregate_prices.loc[('Legacy', cust_segments[i], 'median'), :].tolist(),
             color='blue', linestyle='--', marker='x',
             label="legacy provider {0}".format(cust_segments[i]))
+    for j, provider_count in enumerate(dereg_count):
+        axes[i].annotate("({0:.0f})".format(provider_count), xy=(j, 1.), xytext=(j, 1.),
+                         arrowprops=None, horizontalalignment='center',
+                         verticalalignment='top', fontsize=16, color='orange')
+    axes[i].plot([], c='orange', label='():non-legacy provider count')
+
     axes[i].legend(loc='upper right')
     axes[i].set_xticks(range(0, len(dereg_prices.columns), 1))
     axes[i].set_ylim([0., 20.])
