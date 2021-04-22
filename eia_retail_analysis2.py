@@ -210,12 +210,13 @@ labels = [str(x) for x in DeRegSavings_df.columns]
 x = np.arange(len(labels))  # the label locations
 width = 0.25   # the width of the bars
 # cust_segments = {'residential':-width/3, 'commercial': 0., 'industrial':width/2.}
-cust_segments = ['commercial', 'industrial', 'residential']
+cust_segments = ['residential', 'commercial', 'industrial']
+segment_colors = [plt.cm.Set1(i) for i in range(len(cust_segments))]
 fig, ax = plt.subplots(figsize=(10, 6))
 rects = []
-rects1 = ax.bar(x - width, DeRegSavings_df.loc[idx[:, cust_segments[0], :], :].values.flatten(), width, label=cust_segments[0])
-rects2 = ax.bar(x, DeRegSavings_df.loc[idx[:, cust_segments[1], :], :].values.flatten(), width, label=cust_segments[1])
-rects3 = ax.bar(x + width, DeRegSavings_df.loc[idx[:, cust_segments[2], :], :].values.flatten(), width, label=cust_segments[2])
+rects1 = ax.bar(x - width, DeRegSavings_df.loc[idx[:, cust_segments[0], :], :].values.flatten(), width, label=cust_segments[0], color=segment_colors[0])
+rects2 = ax.bar(x, DeRegSavings_df.loc[idx[:, cust_segments[1], :], :].values.flatten(), width, label=cust_segments[1], color=segment_colors[1])
+rects3 = ax.bar(x + width, DeRegSavings_df.loc[idx[:, cust_segments[2], :], :].values.flatten(), width, label=cust_segments[2], color=segment_colors[2])
 
 # Add some text for labels, title and custom x-axis tick labels, etc.
 ax.set_ylabel("""Median Provider Unit Price Difference X Sales Volumes ($Bn)""")
@@ -229,11 +230,51 @@ fig.tight_layout()
 plt.show()
 #%%
 # sums from previous graph
+cust_segments = {'residential': 0, 'commercial': 1, 'industrial': 2}
 out_df = pd.DataFrame(DeRegSavings_df.sum(axis=1))
 out_df.index = out_df.index.droplevel([0,2])
+out_df.rename(columns={0:'PriceDiffxSalesBns'}, inplace=True)
+out_df.sort_index(key=lambda x: x.map(cust_segments), inplace=True)
 out_df.columns = ['All']
 out_df.loc['Total'] = out_df.sum(axis=0)
 print(out_df.to_markdown(floatfmt=".2f"))
+#%%
+# Average monthly bill over period
+metrics = {'Rev':1 / 1.e6, 'Customers': 12. / 1.e6, 'Sales': 1. / 1.e6}
+sums_sum = aggregate_sums.sum(axis=1).loc[idx[metrics.keys(), 'DeReg', :]]
+sums_sum = sums_sum.droplevel([1]).unstack(level=0)
+avg_billing = pd.DataFrame(data=None, index = sums_sum.index)
+avg_billing['Avg_Use_KWH'] = (sums_sum['Sales'] * 1.e3) /(sums_sum['Customers'] * 12.)
+avg_billing['Avg_Bill_USD'] = (sums_sum['Rev'] * 1.e3) /(sums_sum['Customers'] * 12.)
+avg_billing['Avg_Prc_CentsPerKWH'] = avg_billing['Avg_Bill_USD'] * 1.e2 / avg_billing['Avg_Use_KWH']
+avg_billing.sort_index(key=lambda x: x.map(cust_segments), inplace=True)
+print(avg_billing.to_markdown(floatfmt=",.2f"))
+#%%
+# Now redo graph with $/Customer-Month
+DeRegCustomers = aggregate_sums.loc[idx['Customers', 'DeReg', :], :]
+DeRegSavings_df_scaled = pd.DataFrame(data=(DeRegSavings_df.values * 1.e9) / (DeRegCustomers.values * 12),
+                                      index=DeRegSavings_df.index, columns=DeRegSavings_df.columns)
+labels = [str(x) for x in DeRegSavings_df_scaled.columns]
+x = np.arange(len(labels))  # the label locations
+width = 0.75   # the width of the bars
+cust_segments = ['residential', 'commercial', 'industrial']
+fig, axes = plt.subplots(figsize=(10, 15), nrows=3, ncols=1, sharex=True) #10, 6
+rects = []
+for i, cust_segment in enumerate(cust_segments):
+    _ = axes[i].bar(x, DeRegSavings_df_scaled.loc[idx[:, cust_segments[i], :], :].values.flatten(),
+                             width, label=cust_segments[i], color=segment_colors[i])
+# Add some text for labels, title and custom x-axis tick labels, etc.
+for i, cust_segment in enumerate(cust_segments):
+    axes[i].set_ylabel("""Median Provider Unit Price Difference($/Month)""")
+    axes[i].set_title("Monthly Bill Comparison\n['Traditional Utility' minus 'Retail Provider']: {0}".format(cust_segment))
+    axes[i].set_xticks(x)
+    axes[i].grid(True)
+    # axes[i].set_yticks(ticks=np.arange(-2., 2.5, 0.25), minor=True)
+    axes[i].set_xticklabels(labels)
+    axes[i].legend()
+fig.tight_layout()
+plt.show()
+
 #%%
 # Analyze legacy customers...first of all, who are the 'legacy' providers?
 legacy_list = sorted(list(tx_records[(tx_records.Entity.str.find('TXU')!=-1) |
