@@ -67,6 +67,7 @@ print(aggregate_prices.head())
 print("aggregate sums...")
 print(aggregate_sums.head())
 #%%
+# calculate total market weighted average price, add to aggregate prices dataframe
 total_market_sums = aggregate_sums.sum(axis=0, level=['ValueType', 'OwnershipType'])
 new_index = pd.MultiIndex.from_product([['WtAvg'], total_market_sums.index.get_level_values(1).unique()],
                                        names=['Aggregate', 'OwnershipType'])
@@ -131,7 +132,6 @@ for i, ax in enumerate(axes):
                  .format(axes_cust_segments[i].capitalize()))
     ax.grid(True)
     ax.set_ylim(ylims[i])
-#%%
 # populate axes and draw
 for i, axes_cust_segment in enumerate(axes_cust_segments):
     for j, reg_segment in enumerate(reg_segments.keys()):
@@ -181,6 +181,7 @@ ax.legend(loc='upper right')
 plt.show()
 
 #%%
+# Redo analysis looking at medians as central tendency, whole market
 # aggregates deregulated volumes * difference of median provider prices
 segments = ['commercial', 'industrial', 'residential']
 new_index = pd.MultiIndex.from_product([['RegMinusDeReg'], segments,
@@ -245,11 +246,11 @@ print(out_df.to_markdown(floatfmt=".2f"))
 # Average monthly bill over period
 cust_segments = {'residential': 0, 'commercial': 1, 'industrial': 2}
 metrics = {'Rev':1 / 1.e6, 'Customers': 12. / 1.e6, 'Sales': 1. / 1.e6}
-sums_sum = aggregate_sums.sum(axis=1).loc[idx[metrics.keys(), 'DeReg', :]]
-sums_sum = sums_sum.droplevel([1]).unstack(level=0)
-avg_billing = pd.DataFrame(data=None, index = sums_sum.index)
-avg_billing['KWH_PerMonth'] = (sums_sum['Sales'] * 1.e3) /(sums_sum['Customers'] * 12.)
-avg_billing['BillUSD_PerMonth'] = (sums_sum['Rev'] * 1.e3) /(sums_sum['Customers'] * 12.)
+deRegSummary = aggregate_sums.sum(axis=1).loc[idx[metrics.keys(), 'DeReg', :]]
+deRegSummary = deRegSummary.droplevel([1]).unstack(level=0)
+avg_billing = pd.DataFrame(data=None, index = deRegSummary.index)
+avg_billing['KWH_PerMonth'] = (deRegSummary['Sales'] * 1.e3) / (deRegSummary['Customers'] * 12.)
+avg_billing['BillUSD_PerMonth'] = (deRegSummary['Rev'] * 1.e3) / (deRegSummary['Customers'] * 12.)
 avg_billing['Prc_CentsPerKWH'] = avg_billing['BillUSD_PerMonth'] * 1.e2 / avg_billing['KWH_PerMonth']
 avg_billing.sort_index(key=lambda x: x.map(cust_segments), inplace=True)
 print(avg_billing.to_markdown(floatfmt=",.2f"))
@@ -457,6 +458,7 @@ fig.tight_layout()
 plt.show()
 
 #%%
+# Summarize previous graph in table
 out_df = pd.DataFrame(LegacySwitchBn_df.sum(axis=1))
 out_df.index = out_df.index.droplevel([0,2])
 cust_segments = {'residential': 0, 'commercial': 1, 'industrial': 2}
@@ -465,6 +467,7 @@ out_df.columns = ['All']
 out_df.loc['Total'] = out_df.sum(axis=0)
 print(out_df.to_markdown(floatfmt=".2f"))
 #%%
+# Scale savaings to dollars on monthly bill per customer
 legacySwitchSavings_scaled = (LegacySwitchBn_df.values * 1.e9) / \
                              (aggregate_sums.loc[idx['Customers', 'Legacy', :], :].values * 12.)
 legacySwitchSavings_scaled = pd.DataFrame(data = legacySwitchSavings_scaled,
