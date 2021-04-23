@@ -214,9 +214,12 @@ cust_segments = ['residential', 'commercial', 'industrial']
 segment_colors = [plt.cm.Set1(i) for i in range(len(cust_segments))]
 fig, ax = plt.subplots(figsize=(10, 6))
 rects = []
-rects1 = ax.bar(x - width, DeRegSavings_df.loc[idx[:, cust_segments[0], :], :].values.flatten(), width, label=cust_segments[0], color=segment_colors[0])
-rects2 = ax.bar(x, DeRegSavings_df.loc[idx[:, cust_segments[1], :], :].values.flatten(), width, label=cust_segments[1], color=segment_colors[1])
-rects3 = ax.bar(x + width, DeRegSavings_df.loc[idx[:, cust_segments[2], :], :].values.flatten(), width, label=cust_segments[2], color=segment_colors[2])
+rects1 = ax.bar(x - width, DeRegSavings_df.loc[idx[:, cust_segments[0], :], :].values.flatten(),
+                width, label=cust_segments[0], color=segment_colors[0])
+rects2 = ax.bar(x, DeRegSavings_df.loc[idx[:, cust_segments[1], :], :].values.flatten(),
+                width, label=cust_segments[1], color=segment_colors[1])
+rects3 = ax.bar(x + width, DeRegSavings_df.loc[idx[:, cust_segments[2], :], :].values.flatten(),
+                width, label=cust_segments[2], color=segment_colors[2])
 
 # Add some text for labels, title and custom x-axis tick labels, etc.
 ax.set_ylabel("""Median Provider Unit Price Difference X Sales Volumes ($Bn)""")
@@ -240,13 +243,14 @@ out_df.loc['Total'] = out_df.sum(axis=0)
 print(out_df.to_markdown(floatfmt=".2f"))
 #%%
 # Average monthly bill over period
+cust_segments = {'residential': 0, 'commercial': 1, 'industrial': 2}
 metrics = {'Rev':1 / 1.e6, 'Customers': 12. / 1.e6, 'Sales': 1. / 1.e6}
 sums_sum = aggregate_sums.sum(axis=1).loc[idx[metrics.keys(), 'DeReg', :]]
 sums_sum = sums_sum.droplevel([1]).unstack(level=0)
 avg_billing = pd.DataFrame(data=None, index = sums_sum.index)
-avg_billing['Avg_Use_KWH'] = (sums_sum['Sales'] * 1.e3) /(sums_sum['Customers'] * 12.)
-avg_billing['Avg_Bill_USD'] = (sums_sum['Rev'] * 1.e3) /(sums_sum['Customers'] * 12.)
-avg_billing['Avg_Prc_CentsPerKWH'] = avg_billing['Avg_Bill_USD'] * 1.e2 / avg_billing['Avg_Use_KWH']
+avg_billing['KWH_PerMonth'] = (sums_sum['Sales'] * 1.e3) /(sums_sum['Customers'] * 12.)
+avg_billing['BillUSD_PerMonth'] = (sums_sum['Rev'] * 1.e3) /(sums_sum['Customers'] * 12.)
+avg_billing['Prc_CentsPerKWH'] = avg_billing['BillUSD_PerMonth'] * 1.e2 / avg_billing['KWH_PerMonth']
 avg_billing.sort_index(key=lambda x: x.map(cust_segments), inplace=True)
 print(avg_billing.to_markdown(floatfmt=",.2f"))
 #%%
@@ -265,7 +269,7 @@ for i, cust_segment in enumerate(cust_segments):
                              width, label=cust_segments[i], color=segment_colors[i])
 # Add some text for labels, title and custom x-axis tick labels, etc.
 for i, cust_segment in enumerate(cust_segments):
-    axes[i].set_ylabel("""Median Provider Unit Price Difference($/Month)""")
+    axes[i].set_ylabel("""Median Provider Monthly Bill Difference Difference($/Month)""")
     axes[i].set_title("Monthly Bill Comparison\n['Traditional Utility' minus 'Retail Provider']: {0}".format(cust_segment))
     axes[i].set_xticks(x)
     axes[i].grid(True)
@@ -276,6 +280,7 @@ fig.tight_layout()
 plt.show()
 
 #%%
+# Analysis of legacy customers starts here
 # Analyze legacy customers...first of all, who are the 'legacy' providers?
 legacy_list = sorted(list(tx_records[(tx_records.Entity.str.find('TXU')!=-1) |
                                      (tx_records.Entity.str.find('Reliant')!=-1)]['Entity'].unique()))
@@ -336,26 +341,7 @@ print("Calculating difference in aggregate price measures between legacy and oth
 pd.options.display.float_format = '{:,.2f}'.format
 print(aggregate_prices)
 #%%
-# create visualization for median price difference between legacy providers and others
-# one line per customer class
-fig, ax = plt.subplots(figsize=(10, 6)) #10, 6
-cust_segments = ['residential', 'commercial', 'industrial']
-for customer_class in cust_segments:
-    ax.plot(aggregate_prices.columns.tolist(),
-            aggregate_prices.loc[('legacySwitchSave', customer_class, 'median'), :].values,
-            color='blue', linestyle='--', marker="${0}$".format(customer_class[0].capitalize()),
-            markersize=12, label="median_price_{0}".format(customer_class))
-ax.legend(loc='upper left')
-ax.set_xlabel('Year')
-ax.set_ylabel('Price (\u00A2/kwh)')
-ax.set_title("""Median Unit Price Difference "Legacy Providers vs Others """)
-ax.grid(True)
-# ax.set_ylim([25., 100.])
-fig.tight_layout()
-fig.canvas.draw()
-plt.show()
-#%%
-# analyze 2008...
+# 2008 is an anomolous year, analyze 2008...
 legacy_types = ['Legacy', 'DeReg']
 study_prices = tx_records[(tx_records.Year == 2008) & (tx_records.LegacyType.isin(legacy_types)) &
                           (tx_records.ValueType == 'AvgPrc') & (tx_records.CustClass=='residential')]
@@ -365,7 +351,6 @@ for legacy_type in legacy_types:
 
 print(aggregate_prices.loc[(['DeReg', 'Legacy'], 'residential', 'median'), :])
 #%%
-
 def set_box_color(bp, color):
     plt.setp(bp['boxes'], color=color)
     plt.setp(bp['whiskers'], color=color)
@@ -374,6 +359,7 @@ def set_box_color(bp, color):
 
 
 cust_segments = ['residential', 'commercial', 'industrial']
+segment_colors = [plt.cm.Set1(i) for i in range(len(cust_segments))]
 fig, axes = plt.subplots(figsize=(10, 15), nrows=3, ncols=1, sharex=True) #10, 6
 for i, ax in enumerate(axes):
     dereg_prices = tx_records[(tx_records.LegacyType=='DeReg') & (tx_records.ValueType == 'AvgPrc') &
@@ -384,10 +370,11 @@ for i, ax in enumerate(axes):
         .pivot_table(index='Entity', columns='Year', values='Value', aggfunc='count').sum(axis=0).to_list()
     dereg_prices_processed = [dereg_prices[x][dereg_prices[x].notnull()].tolist() for x in dereg_prices.columns.tolist()]
     bpl = ax.boxplot(dereg_prices_processed, positions=np.array(range(len(dereg_prices.columns))), sym=None, widths=0.6)
-    set_box_color(bpl, 'red')  # colors are from http://colorbrewer2.org/
-    axes[i].plot([], c='red', label='non-legacy provider price')
-    axes[i].plot(list(range(len(aggregate_prices.columns))), aggregate_prices.loc[('Legacy', cust_segments[i], 'median'), :].tolist(),
-            color='blue', linestyle='--', marker='x',
+    set_box_color(bpl, segment_colors[i])  # colors are from http://colorbrewer2.org/
+    axes[i].plot([], c=segment_colors[i], label='non-legacy provider price')
+    axes[i].plot(list(range(len(aggregate_prices.columns))), aggregate_prices.loc[('Legacy', cust_segments[i],
+                                                                                   'median'), :].tolist(),
+            color='black', linestyle='--', marker='x',
             label="legacy provider {0}".format(cust_segments[i]))
     for j, provider_count in enumerate(dereg_count):
         axes[i].annotate("({0:.0f})".format(provider_count), xy=(j, 1.), xytext=(j, 1.),
@@ -410,62 +397,115 @@ fig.tight_layout()
 plt.show()
 
 #%%
+# plot legacy volumes over time
+fig, ax = plt.subplots(figsize=(10, 6)) #10, 6
+cust_segments = ['residential', 'commercial', 'industrial']
+segment_colors = [plt.cm.Set1(i) for i in range(len(cust_segments))]
+for i, customer_class in enumerate(cust_segments):
+    ax.plot(aggregate_sums.columns.tolist(),
+            aggregate_sums.loc[('Sales', 'Legacy', customer_class), :].values / 1.e6,
+            color=segment_colors[i], linestyle='--', marker="${0}$".format(customer_class[0].capitalize()),
+            markersize=12, label="Sales_{0}".format(customer_class))
+ax.legend(loc='upper right')
+ax.set_xlabel('Year')
+ax.set_ylabel('Legacy Sales (TWH)')
+ax.set_title("""Legacy Provider Sales Volumes Over Time """)
+ax.grid(True)
+# ax.set_ylim([25., 100.])
+fig.tight_layout()
+fig.canvas.draw()
+plt.show()
+#%%
+# multiply median price difference between legacy and non-legacy by legacy volumes
 new_index = pd.MultiIndex.from_product([['LegacySwitchBn'], aggregate_prices.index.get_level_values(1).unique(),
-                                        aggregate_prices.index.get_level_values(2).unique()],
+                                        ['median']],
                                        names=['LegacyType', 'CustClass',  'Aggregate'])
-LegacySwitchBn_df = pd.DataFrame(data=aggregate_prices.loc[idx['legacySwitchSave', :, :], :].values, index=new_index,
+LegacySwitchBn_df = pd.DataFrame(data=aggregate_prices.loc[idx['legacySwitchSave', :, 'median'], :].values, index=new_index,
                                  columns=aggregate_prices.columns)
 print(LegacySwitchBn_df)
 for ind, series in LegacySwitchBn_df.iterrows():
-    multiplier = aggregate_sums.loc[idx['Sales', 'Legacy', ind[1]], :].values
-    LegacySwitchBn_df.loc[ind, :] = LegacySwitchBn_df.loc[ind, :] * multiplier / 1.e8
-print(aggregate_sums.loc[idx['Sales', 'Legacy', :], :])
+    multiplier = aggregate_sums.loc[idx['Sales', 'Legacy', ind[1]], :].values * 1.e3
+    LegacySwitchBn_df.loc[ind, :] = LegacySwitchBn_df.loc[ind, :] * multiplier / 1.e11
+# print(aggregate_sums.loc[idx['Sales', 'Legacy', :], :])
 print(LegacySwitchBn_df)
+#%%
+# Bar graph of commercial, residential, industrial Legacy Switch Savings
+labels = [str(x) for x in LegacySwitchBn_df.columns]
+x = np.arange(len(labels))  # the label locations
+width = 0.25   # the width of the bars
+# cust_segments = {'residential':-width/3, 'commercial': 0., 'industrial':width/2.}
+cust_segments = ['residential', 'commercial', 'industrial']
+segment_colors = [plt.cm.Set1(i) for i in range(len(cust_segments))]
+fig, ax = plt.subplots(figsize=(10, 6))
+rects = []
+rects1 = ax.bar(x - width, LegacySwitchBn_df.loc[idx[:, cust_segments[0], :], :].values.flatten(),
+                width, label=cust_segments[0], color=segment_colors[0])
+rects2 = ax.bar(x, LegacySwitchBn_df.loc[idx[:, cust_segments[1], :], :].values.flatten(),
+                width, label=cust_segments[1], color=segment_colors[1])
+rects3 = ax.bar(x + width, LegacySwitchBn_df.loc[idx[:, cust_segments[2], :], :].values.flatten(),
+                width, label=cust_segments[2], color=segment_colors[2])
 
-out_df = pd.DataFrame(LegacySwitchBn_df.loc[idx[:, :, 'median'], :].sum(axis=1))
+# Add some text for labels, title and custom x-axis tick labels, etc.
+ax.set_ylabel("""Median Provider Unit Price Difference X Legacy Sales Volumes ($Bn)""")
+ax.set_title("Legacy vs None-Legacy Price Difference X Sales Volumes\n['Legacy' minus 'Median Retail Provider']")
+ax.set_xticks(x)
+ax.grid(True)
+ax.set_yticks(ticks=np.arange(-.5, 1.5, 0.25), minor=True)
+ax.set_xticklabels(labels)
+ax.legend()
+fig.tight_layout()
+plt.show()
+
+#%%
+out_df = pd.DataFrame(LegacySwitchBn_df.sum(axis=1))
 out_df.index = out_df.index.droplevel([0,2])
+cust_segments = {'residential': 0, 'commercial': 1, 'industrial': 2}
+out_df.sort_index(key=lambda x: x.map(cust_segments), inplace=True)
 out_df.columns = ['All']
 out_df.loc['Total'] = out_df.sum(axis=0)
 print(out_df.to_markdown(floatfmt=".2f"))
 #%%
-new_index = pd.MultiIndex.from_product([['LegacyPct'], ['Legacy'], aggregate_sums.index.get_level_values(2).unique()],
-                                       names="ValueType LegacyType CustClass".split())
-pct_legacy = aggregate_sums.loc[idx['Sales', 'Legacy', :], :].values / \
-             (aggregate_sums.loc[idx['Sales', 'Legacy', :], :].values +
-              aggregate_sums.loc[idx['Sales', 'DeReg', :], :].values)
-pct_legacy_df = pd.DataFrame(data = pct_legacy * 100., index=new_index, columns=aggregate_sums.columns)
-print(pct_legacy_df)
-
+legacySwitchSavings_scaled = (LegacySwitchBn_df.values * 1.e9) / \
+                             (aggregate_sums.loc[idx['Customers', 'Legacy', :], :].values * 12.)
+legacySwitchSavings_scaled = pd.DataFrame(data = legacySwitchSavings_scaled,
+                                          index=LegacySwitchBn_df.index.get_level_values(1),
+                                          columns=LegacySwitchBn_df.columns)
+print(legacySwitchSavings_scaled)
 #%%
-# Insert graph of Legacy vs DeReg Volumes here
-fig, ax = plt.subplots(figsize=(10, 6)) #10, 6
-cust_segments = {'residential':'red', 'commercial':'green', 'industrial':'blue'}
-markers = {'commercial', "$c$", }
-
-for customer_class in cust_segments.keys():
-    ax.plot(pct_legacy_df.columns.tolist(),
-            pct_legacy_df.loc[('LegacyPct', 'Legacy', customer_class), :].values,
-            color=cust_segments[customer_class], linestyle='--', marker="${0}$".format(customer_class[0].capitalize()),
-            markersize=12, label="{0}".format(customer_class))
-ax.legend(loc='upper right')
-ax.set_xlabel('Year')
-ax.set_ylabel('Sales (% of Total)')
-ax.set_title("""Texas Retail Electricity\nMarket Share of Legacy Providers""")
-ax.grid(True)
+labels = [str(x) for x in legacySwitchSavings_scaled.columns]
+x = np.arange(len(labels))  # the label locations
+width = 0.75   # the width of the bars
+cust_segments = ['residential', 'commercial', 'industrial']
+fig, axes = plt.subplots(figsize=(10, 15), nrows=3, ncols=1, sharex=True) #10, 6
+rects = []
+for i, cust_segment in enumerate(cust_segments):
+    _ = axes[i].bar(x, legacySwitchSavings_scaled.loc[idx[cust_segments[i]], :].values.flatten(),
+                             width, label=cust_segments[i], color=segment_colors[i])
+# Add some text for labels, title and custom x-axis tick labels, etc.
+for i, cust_segment in enumerate(cust_segments):
+    axes[i].set_ylabel("""Median Provider Bill Difference vs Legacy($/Month)""")
+    axes[i].set_title("Monthly Bill Comparison\n['Legacy' minus 'Median Retail Provider']: {0}".format(cust_segment))
+    axes[i].set_xticks(x)
+    axes[i].grid(True)
+    # axes[i].set_yticks(ticks=np.arange(-2., 2.5, 0.25), minor=True)
+    axes[i].set_xticklabels(labels)
+    axes[i].legend()
 fig.tight_layout()
-fig.canvas.draw()
 plt.show()
+#%%
+# revenues per legacy Customer per month, just as a check
+revsPerCust = (aggregate_sums.loc[idx['Rev', 'Legacy', :], :] * 1.e3).values / (
+        aggregate_sums.loc[idx['Customers', 'Legacy', :], :] * 12).values
+revsPerCust = pd.DataFrame(data=revsPerCust, index=aggregate_sums.index.get_level_values(2).unique(),
+                           columns=aggregate_sums.columns)
+print(revsPerCust)
+# Annual Customer count, thousands
+pd.options.display.float_format = '{:,.0f}'.format
+cust_counts = aggregate_sums.loc[idx['Customers', ['Legacy', 'DeReg'], :], :] / 1.e3
+# cust_counts.loc['Column_Total']= cust_counts.sum(axis=0)
+print(cust_counts)
 # %%
-# Insert graph price savings here
-
 # %%
-# Insert multi-bar of potential savings here
-# https://matplotlib.org/stable/gallery/lines_bars_and_markers/barchart.html
-
-# %%
-# %%
-
-
 # %%
 # %%
 # %%
