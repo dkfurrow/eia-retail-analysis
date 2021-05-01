@@ -150,8 +150,80 @@ for i, axes_cust_segment in enumerate(axes_cust_segments):
 fig.tight_layout()
 fig.canvas.draw()
 plt.show()
+#%%
+year_graphed = 2010
+y_axis_valueType = 'Customers' # alternately 'Sales'
+com_tx_year_dereg = tx_records[(tx_records['Year'] == year_graphed) & (tx_records['CustClass'] == 'commercial') &
+                               (tx_records['OwnershipType'] == 'DeReg')]  # 66 records of AvgPrc and Customers
+com_tx_year_dereg_pivot = com_tx_year_dereg.pivot_table(values='Value', index='Entity', columns='ValueType')
 
-# %%
+com_tx_year_dereg_price_dict = OrderedDict(zip(com_tx_year_dereg[com_tx_year_dereg['ValueType'] == 'AvgPrc']['Value'],
+                                               com_tx_year_dereg[com_tx_year_dereg['ValueType'] == y_axis_valueType]
+                                               ['Value']))
+com_tx_year_reg = tx_records[(tx_records['Year'] == year_graphed) & (tx_records['CustClass'] == 'commercial') &
+                             (tx_records['OwnershipType'] == 'Reg') &
+                             (tx_records['OwnershipType'].isin(['Reg']))]  # ['Municipal', 'Cooperative', 'Investor Owned']
+com_tx_year_reg_pivot = com_tx_year_reg.pivot_table(values='Value', index='Entity', columns='ValueType')
+com_tx_year_reg_pivot = com_tx_year_reg_pivot[com_tx_year_reg_pivot['AvgPrc'].notnull()]
+com_tx_year_reg_price_dict = OrderedDict(zip(com_tx_year_reg_pivot['AvgPrc'].values.tolist(),
+                                             com_tx_year_reg_pivot[y_axis_valueType].values.tolist()))
+
+#%%
+def millions(x, pos):
+    'The two args are the value and tick position'
+    return "{0:.2f}".format(x*1e-6)
+
+def thousands(x, pos):
+    'The two args are the value and tick position'
+    return "{0:.2f}".format(x*1e-3)
+
+formatter = FuncFormatter(millions if y_axis_valueType == 'Sales' else thousands)
+fig, axes = plt.subplots(figsize=(10, 10), nrows=2, ncols=1, sharex=True) #10, 6
+bar_width = 0.2
+_ = axes[0].bar(com_tx_year_dereg_price_dict.keys(), height=com_tx_year_dereg_price_dict.values(),
+                align='center', width=bar_width)
+# axes[0].set_xlim([4., 15.])
+axes[0].yaxis.set_major_formatter(formatter)
+axes[0].set_axisbelow(True)
+axes[0].set_title("'Retail Provider' Commercial Customer Prices, Texas, {0:d}".format(year_graphed))
+axes[0].set_xlabel('Price (\u00A2/kwh)')
+axes[0].set_ylabel('Sales (TWH)' if y_axis_valueType == 'Sales' else 'Customers (Thousands)')
+_ = axes[1].bar(com_tx_year_reg_price_dict.keys(), height=com_tx_year_reg_price_dict.values(),
+                align='center', width=bar_width)
+axes[1].set_xlim([6., 15.])
+axes[1].yaxis.set_major_formatter(formatter)
+axes[1].set_axisbelow(True)
+axes[1].set_title("'Traditional Utility' Commercial Customer Prices, Texas, {0:d}".format(year_graphed))
+axes[1].set_xlabel('Price (\u00A2/kwh)')
+axes[1].set_ylabel('Sales (TWH)' if y_axis_valueType == 'Sales' else 'Customers (Thousands)')
+measures = [('DeReg', 'WtAvg', 'black', '--', (0., 9.e6)), ('DeReg', 'median', 'blue', ':', (0., 9.e6)),
+            ('Reg', 'WtAvg', 'black', '--', (0., 12.e6)), ('Reg', 'median', 'blue', ':', (0., 12.e6))]
+for measure in measures:
+    measure_val = aggregate_prices.loc[idx[measure[0], 'commercial', measure[1]], year_graphed]
+    print("{0} {1}: {2:.2f}".format(measure[0], measure[1], measure_val))
+    _ = axes[0 if measure[0] == 'DeReg' else 1].axvline(measure_val, color=measure[2], linestyle=measure[3], linewidth=1, label=measure[1])
+axes[0].legend(loc='upper right')
+axes[1].legend(loc='upper right')
+plt.show()
+#%%
+# here are some examples for comparison
+print(com_tx_year_reg_pivot.sort_values(by='Customers').tail())
+print(com_tx_year_reg_pivot[com_tx_year_reg_pivot.index.str.contains('|'.join(['Taylor', 'Liberty']))])
+# Taylor Electric Coop 2010, 11.28 vs Austin 8.98
+# City of Liberty 11.15, Entergy Texas 6.94
+#%%
+# find median customer price
+def median_customer_price(df: pd.DataFrame):
+    temp_df:pd.DataFrame = df.sort_values(by='AvgPrc', axis=0, ascending=True)
+    temp_df['CustSummed'] = temp_df['Customers'].cumsum()
+    median_cust_provider = temp_df[temp_df.CustSummed >= temp_df.CustSummed.max() / 2.].index[0]
+    return temp_df.loc[median_cust_provider, :]
+print("median customer dereg...")
+print(median_customer_price(com_tx_year_dereg_pivot))
+print("median customer reg...")
+print(median_customer_price(com_tx_year_reg_pivot))
+
+#%%
 # Plot weighted average price difference for residential customers vs all customers
 plt.rc('font', size=12)
 fig, ax = plt.subplots(figsize=(10, 6))
