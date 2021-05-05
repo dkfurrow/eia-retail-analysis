@@ -342,7 +342,7 @@ for i, cust_segment in enumerate(cust_segments):
                              width, label=cust_segments[i], color=segment_colors[i])
 # Add some text for labels, title and custom x-axis tick labels, etc.
 for i, cust_segment in enumerate(cust_segments):
-    axes[i].set_ylabel("""Median Provider Monthly Bill Difference Difference($/Month)""")
+    axes[i].set_ylabel("""Monthly Bill Difference at Median Prices ($/Month)""")
     axes[i].set_title("Monthly Bill Comparison\n['Traditional Utility' minus 'Retail Provider']: {0}".format(cust_segment))
     axes[i].set_xticks(x)
     axes[i].grid(True)
@@ -520,7 +520,7 @@ rects3 = ax.bar(x + width, LegacySwitchBn_df.loc[idx[:, cust_segments[2], :], :]
 
 # Add some text for labels, title and custom x-axis tick labels, etc.
 ax.set_ylabel("""Median Provider Unit Price Difference X Legacy Sales Volumes ($Bn)""")
-ax.set_title("Legacy vs None-Legacy Price Difference X Sales Volumes\n['Legacy' minus 'Median Retail Provider']")
+ax.set_title("Legacy vs Non-Legacy Price Difference X Sales Volumes\n['Legacy' minus 'Median Retail Provider']")
 ax.set_xticks(x)
 ax.grid(True)
 ax.set_yticks(ticks=np.arange(-.5, 1.5, 0.25), minor=True)

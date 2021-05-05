@@ -9,7 +9,7 @@ Median Price Difference X Sales Volumes, All Markets
 
 Average Billing Statistics, all Markets
 
-| CustClass   |   KWH_PerMonth |   BillUSD_PerMonth |   Prc_CentsPerKWH |
+| CustClass   |   KWH_PerMonth |   Bill_USD_PerMonth |   Prc_CentsPerKWH |
 |:------------|---------------:|-------------------:|------------------:|
 | residential |       1,187.55 |             147.80 |             12.45 |
 | commercial  |       8,398.58 |             733.65 |              8.74 |
